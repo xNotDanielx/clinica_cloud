@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.vite/
+.env
+.env.*
+npm-debug.log*
+.git/
+.vscode/
+.idea/
+.vs/

@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../components/api";
 
-const BACKEND = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000";
-
 const fallbackProcedures = [
   { id: 1, nombre: "Procedimiento A", descripcion: "Descripción genérica del procedimiento.", url_imagen: "" },
   { id: 2, nombre: "Procedimiento B", descripcion: "Descripción genérica del procedimiento.", url_imagen: "" },

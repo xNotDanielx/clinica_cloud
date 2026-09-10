@@ -39,21 +39,17 @@ def seed_procedimientos() -> None:
                     select(Procedimiento).where(Procedimiento.nombre == item["nombre"])
                 )
 
-                if procedimiento is None:
-                    procedimiento = Procedimiento(
-                        nombre=item["nombre"],
-                        descripcion=item["descripcion"],
-                        precio=Decimal(item["precio"]),
-                        url_imagen=item["url_imagen"],
-                        activo=True,
-                    )
-                    session.add(procedimiento)
+                if procedimiento is not None:
                     continue
 
-                procedimiento.descripcion = item["descripcion"]
-                procedimiento.precio = Decimal(item["precio"])
-                procedimiento.url_imagen = item["url_imagen"]
-                procedimiento.activo = True
+                procedimiento = Procedimiento(
+                    nombre=item["nombre"],
+                    descripcion=item["descripcion"],
+                    precio=Decimal(item["precio"]),
+                    url_imagen=item["url_imagen"],
+                    activo=True,
+                )
+                session.add(procedimiento)
     finally:
         session.close()
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminLogin from "../components/AdminLogin";
-import { apiFetch } from "../components/api";
+import { API_URL, apiFetch } from "../components/api";
 
 type TabKey = "Inicio" | "Pacientes" | "Citas" | "Autorizar Citas";
 
@@ -777,7 +777,7 @@ export default function AdminPage() {
     event.preventDefault();
 
     try {
-      const response = await fetch("http://localhost:8000/administradores/login", {
+      const response = await fetch(`${API_URL}/administradores/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
