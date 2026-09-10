@@ -55,7 +55,7 @@ def crear_cita_publica(payload: CitaPublicaRequest, db: Session = Depends(get_db
         return cita
     except Exception as error:
         db.rollback()
-        raise error
+        raise to_http_exception(error)
     
 from app.schemas.cita import CitaUpdate
 
@@ -111,7 +111,6 @@ def listar_citas_pendientes_aprobacion(db: Session = Depends(get_db), administra
     try:
         return CitaService.listar_citas_pendientes_aprobacion(db)
     except Exception as error:
-        print (error)
         raise to_http_exception(error)
 @router.patch("/{cita_id}/aprobar", response_model=CitaOut)
 def aprobar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depends(get_current_administrador)):
@@ -120,9 +119,9 @@ def aprobar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depe
         db.commit()
         db.refresh(cita)
         return cita
-    except Exception as e:
-        print(e)
-        raise
+    except Exception as error:
+        db.rollback()
+        raise to_http_exception(error)
 
 @router.patch("/{cita_id}/rechazar", response_model=CitaOut)
 def rechazar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depends(get_current_administrador)):
@@ -131,9 +130,9 @@ def rechazar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Dep
         db.commit()
         db.refresh(cita)
         return cita
-    except Exception as e:
-        print(e)
-        raise
+    except Exception as error:
+        db.rollback()
+        raise to_http_exception(error)
     
 @router.delete("/{cita_id}", status_code=204)
 def eliminar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depends(get_current_administrador)):

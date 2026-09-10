@@ -12,7 +12,11 @@ router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
 
 
 @router.post("", response_model=PacienteOut, status_code=201)
-def crear_paciente(payload: PacienteCreate, db: Session = Depends(get_db)):
+def crear_paciente(
+    payload: PacienteCreate,
+    db: Session = Depends(get_db),
+    administrador=Depends(get_current_administrador),
+):
     try:
         paciente = PacienteService.crear_paciente(db, payload)
         db.commit()
