@@ -8,6 +8,7 @@ __pycache__/
 venv/
 .env
 .env.*
+!.env.example
 
 # FastAPI / tooling
 .pytest_cache/
@@ -24,6 +25,7 @@ build/
 # IDE
 .vscode/
 .idea/
+.vs/
 
 # OS
 .DS_Store

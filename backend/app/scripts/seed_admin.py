@@ -7,14 +7,23 @@ from app.models.administrador import Administrador
 from app.common.security import hash_password
 
 
-DEFAULT_ADMIN_USUARIO = os.getenv("DEFAULT_ADMIN_USUARIO", "admin")
-DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin")
+INITIAL_ADMIN_USER = os.getenv("INITIAL_ADMIN_USER")
+INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD")
 
 
 def crear_administrador_por_defecto(db: Session) -> None:
+    if not INITIAL_ADMIN_USER and not INITIAL_ADMIN_PASSWORD:
+        return
+
+    if not INITIAL_ADMIN_USER or not INITIAL_ADMIN_PASSWORD:
+        raise RuntimeError("INITIAL_ADMIN_USER e INITIAL_ADMIN_PASSWORD deben configurarse juntos")
+
+    if len(INITIAL_ADMIN_PASSWORD) < 12:
+        raise RuntimeError("INITIAL_ADMIN_PASSWORD debe tener al menos 12 caracteres")
+
     administrador = db.scalar(
         select(Administrador).where(
-            Administrador.usuario == DEFAULT_ADMIN_USUARIO
+            Administrador.usuario == INITIAL_ADMIN_USER
         )
     )
 
@@ -22,8 +31,8 @@ def crear_administrador_por_defecto(db: Session) -> None:
         return
 
     nuevo_administrador = Administrador(
-        usuario=DEFAULT_ADMIN_USUARIO,
-        contrasena_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
+        usuario=INITIAL_ADMIN_USER,
+        contrasena_hash=hash_password(INITIAL_ADMIN_PASSWORD),
         activo=True,
     )
 
@@ -31,6 +40,6 @@ def crear_administrador_por_defecto(db: Session) -> None:
     db.commit()
 
     print(
-        f"Administrador por defecto creado: "
-        f"{DEFAULT_ADMIN_USUARIO}"
+        f"Administrador inicial creado: "
+        f"{INITIAL_ADMIN_USER}"
     )
