@@ -1,6 +1,9 @@
+import os
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.lifespan import lifespan
 from app.common.exceptions import ServiceError
@@ -52,12 +55,17 @@ app.include_router(codigos_promocionales_router)
 app.include_router(administradores_router)
 app.include_router(enums_router)
 
-# Enable CORS for local frontend during development
-origins = [
+DEFAULT_CORS_ORIGINS = ",".join([
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+])
+
+origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
+    if origin.strip()
 ]
 
 app.add_middleware(
@@ -67,6 +75,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health", include_in_schema=False)
+def health():
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+
+        return {"status": "ok"}
+
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy"},
+        )
+
 
 @app.get("/")
 def root():
