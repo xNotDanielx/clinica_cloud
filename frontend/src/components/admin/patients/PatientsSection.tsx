@@ -25,7 +25,7 @@ export default function PatientsSection({
 
   return (
 <section className="space-y-6">
-  <div className="flex flex-col gap-4 rounded-4xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl md:flex-row md:items-center md:justify-between">
+  <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl md:flex-row md:items-center md:justify-between">
     <div>
       <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Pacientes</p>
       <h2 className="mt-2 text-3xl font-black text-white">Lista de pacientes</h2>
@@ -36,7 +36,7 @@ export default function PatientsSection({
         placeholder="Buscar paciente..."
         value={patientQuery}
         onChange={(event) => setPatientQuery(event.target.value)}
-        className="w-full min-w-55 rounded-3xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
+        className="w-full min-w-[220px] rounded-3xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
       />
       <button onClick={openCreatePatientModal} className="whitespace-nowrap rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400">
         Agregar paciente
@@ -44,7 +44,7 @@ export default function PatientsSection({
     </div>
   </div>
 
-  <div className="overflow-hidden rounded-4xl border border-white/10 bg-white/5 shadow-2xl">
+  <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl">
     <table className="min-w-full divide-y divide-white/10">
       <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
         <tr>

@@ -11,7 +11,7 @@ type AdminSidebarProps = {
 
 export default function AdminSidebar({ activeTab, onTabChange, onLogout }: AdminSidebarProps) {
   return (
-    <aside className="rounded-4xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
+    <aside className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
       <div className="space-y-8">
         <div className="space-y-3">
           <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Navegación</p>

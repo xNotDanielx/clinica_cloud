@@ -17,7 +17,7 @@ export default function PendingAppointmentsSection({
 
   return (
 <section className="space-y-6">
-  <div className="rounded-4xl border border-white/10 bg-cyan-500/5 p-6 shadow-2xl backdrop-blur-xl">
+  <div className="rounded-[2rem] border border-white/10 bg-cyan-500/5 p-6 shadow-2xl backdrop-blur-xl">
     <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Autorizar citas</p>
     <h2 className="mt-2 text-3xl font-black text-white">Revisa las citas pendientes</h2>
     <p className="mt-3 text-slate-300">
@@ -25,7 +25,7 @@ export default function PendingAppointmentsSection({
     </p>
   </div>
 
-  <div className="overflow-hidden rounded-4xl border border-white/10 bg-white/5 shadow-2xl">
+  <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl">
     <table className="min-w-full divide-y divide-white/10">
       <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
         <tr>

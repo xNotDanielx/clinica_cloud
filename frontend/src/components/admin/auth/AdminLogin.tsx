@@ -20,9 +20,9 @@ export default function AdminLogin({
   return (
     <div className="min-h-screen bg-[#050816] text-white overflow-x-hidden flex items-center justify-center px-4">
       <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),transparent_30%),radial-gradient(circle_at_right,rgba(56,189,248,0.16),transparent_28%),linear-gradient(180deg,#050816_0%,#090b1a_100%)]" />
-      <div className="fixed inset-0 -z-10 opacity-25 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-size-[60px_60px]" />
+      <div className="fixed inset-0 -z-10 opacity-25 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-      <div className="w-full max-w-xl rounded-4xl border border-white/10 bg-white/5 p-8 md:p-10 shadow-2xl backdrop-blur-xl">
+      <div className="w-full max-w-xl rounded-[2rem] border border-white/10 bg-white/5 p-8 md:p-10 shadow-2xl backdrop-blur-xl">
         <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-violet-500/10 text-4xl text-violet-300">
           🔐
         </div>

@@ -10,7 +10,7 @@ type AdminHeaderProps = {
 
 export default function AdminHeader({ activeTab, onTabChange }: AdminHeaderProps) {
   return (
-    <header className="mb-8 rounded-4xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
+    <header className="mb-8 rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-3 rounded-3xl bg-violet-600/10 px-4 py-2 text-sm text-violet-200 ring-1 ring-violet-500/20">

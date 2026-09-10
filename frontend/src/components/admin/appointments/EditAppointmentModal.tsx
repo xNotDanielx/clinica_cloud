@@ -42,7 +42,7 @@ export default function EditAppointmentModal({
     onClick={closeEditAppointmentModal}
   >
     <div
-      className="relative w-full max-w-4xl overflow-hidden rounded-4xl border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
+      className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
       onClick={(event) => event.stopPropagation()}
     >
       <div className="border-b border-white/10 bg-white/5 px-6 py-5">
