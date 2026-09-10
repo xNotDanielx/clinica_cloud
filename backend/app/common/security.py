@@ -18,10 +18,14 @@ from app.models.administrador import Administrador
 
 PBKDF2_ITERATIONS = 120_000
 TOKEN_EXPIRES_HOURS = 8
-TOKEN_SECRET = os.getenv(
-    "ADMIN_AUTH_SECRET",
-    "cambiar-este-secret-en-produccion",
-)
+
+TOKEN_SECRET = os.getenv("ADMIN_AUTH_SECRET")
+
+if not TOKEN_SECRET:
+    raise RuntimeError("ADMIN_AUTH_SECRET no está configurado")
+
+if len(TOKEN_SECRET) < 32:
+    raise RuntimeError("ADMIN_AUTH_SECRET debe tener al menos 32 caracteres")
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
