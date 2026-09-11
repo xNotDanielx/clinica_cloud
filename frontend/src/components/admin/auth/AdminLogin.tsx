@@ -1,9 +1,11 @@
+import type { FormEvent } from "react";
+
 type AdminLoginProps = {
   username: string;
   password: string;
   onUsernameChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
-  onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onForgotPassword: () => void;
 };
 

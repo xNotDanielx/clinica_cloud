@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, Numeric, String, Text, text
+from sqlalchemy import func, Boolean, Column, DateTime, Integer, Numeric, String, Text, text
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -18,6 +18,7 @@ class Procedimiento(Base):
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
     )
 
     citas_procedimientos = relationship("CitaProcedimiento", back_populates="procedimiento")

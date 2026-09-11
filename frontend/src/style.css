@@ -81,3 +81,96 @@ body {
   @apply rounded-[2rem] bg-white/5 p-4 shadow-2xl border border-white/10 backdrop-blur-xl;
 }
 
+
+.public-section {
+  @apply py-20 md:py-28 scroll-mt-28;
+}
+
+.public-surface {
+  @apply rounded-[2rem] border border-white/10 bg-white/5 backdrop-blur-xl;
+}
+
+.section-title {
+  @apply text-4xl md:text-5xl font-black tracking-tight;
+}
+
+.section-description {
+  @apply mt-4 text-lg md:text-xl text-slate-300;
+}
+
+.modal-backdrop {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm;
+}
+
+.modal-panel {
+  @apply relative w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40;
+}
+
+.modal-close-button {
+  @apply flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20;
+}
+
+.form-label {
+  @apply mb-2 block text-sm font-medium text-slate-200;
+}
+
+.form-control {
+  @apply w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400 placeholder:text-slate-400;
+}
+
+.form-select {
+  @apply bg-[#111827];
+}
+
+.form-error {
+  @apply mt-2 text-sm text-rose-300;
+}
+
+.procedure-option {
+  @apply rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-center text-[1rem] font-medium leading-snug text-slate-200 transition hover:bg-white/10 min-h-[72px];
+}
+
+.procedure-option-active {
+  @apply border-cyan-400 bg-cyan-400/15 text-white;
+}
+
+/* Shared admin UI patterns */
+.modal-header {
+  @apply border-b border-white/10 bg-white/5 px-6 py-5;
+}
+
+.modal-kicker {
+  @apply text-sm uppercase tracking-[0.3em] text-cyan-200/80;
+}
+
+.modal-title {
+  @apply mt-2 text-2xl font-black text-white;
+}
+
+.form-grid {
+  @apply grid gap-4 md:grid-cols-2;
+}
+
+.form-actions {
+  @apply mt-6 flex flex-col gap-3 sm:flex-row;
+}
+
+.admin-submit-button {
+  @apply w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.admin-cancel-button {
+  @apply w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10;
+}
+
+.modal-heading-row {
+  @apply flex items-start justify-between gap-4;
+}
+
+.modal-body {
+  @apply max-h-[85vh] overflow-y-auto px-6 py-6;
+}
+
+.table-cell {
+  @apply px-6 py-4;
+}

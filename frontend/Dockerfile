@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1.7
-FROM node:20-slim
+
+FROM node:22-slim
 
 WORKDIR /app
 
 COPY package*.json ./
 
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 

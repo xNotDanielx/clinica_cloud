@@ -3,35 +3,33 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import json
-import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy.orm import Session
 
 from app.common.exceptions import UnauthorizedError
+from app.core.config import get_settings
 from app.db.database import SessionLocal
 from app.models.administrador import Administrador
 
-PBKDF2_ITERATIONS = 120_000
-TOKEN_EXPIRES_HOURS = 8
 
-TOKEN_SECRET = os.getenv("ADMIN_AUTH_SECRET")
+JWT_ALGORITHM = "HS256"
+LEGACY_PBKDF2_PREFIX = "pbkdf2_sha256$"
 
-if not TOKEN_SECRET:
-    raise RuntimeError("ADMIN_AUTH_SECRET no está configurado")
-
-if len(TOKEN_SECRET) < 32:
-    raise RuntimeError("ADMIN_AUTH_SECRET debe tener al menos 32 caracteres")
+_password_hasher = PasswordHasher(
+    time_cost=2,
+    memory_cost=19_456,
+    parallelism=1,
+    hash_len=32,
+    salt_len=16,
+)
 
 bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def _b64encode(data: bytes) -> str:
-    return base64.urlsafe_b64encode(data).decode("utf-8").rstrip("=")
 
 
 def _b64decode(data: str) -> bytes:
@@ -39,37 +37,18 @@ def _b64decode(data: str) -> bytes:
     return base64.urlsafe_b64decode(f"{data}{padding}")
 
 
-def hash_password(password: str) -> str:
-    salt = os.urandom(16)
-    derived_key = hashlib.pbkdf2_hmac(
-        "sha256",
-        password.encode("utf-8"),
-        salt,
-        PBKDF2_ITERATIONS,
-    )
-    return "pbkdf2_sha256${}${}${}".format(
-        PBKDF2_ITERATIONS,
-        _b64encode(salt),
-        _b64encode(derived_key),
-    )
-
-
-def verify_password(password: str, stored_hash: str) -> bool:
+def _verify_legacy_pbkdf2(password: str, stored_hash: str) -> bool:
     try:
         algorithm, iterations_str, salt_b64, derived_b64 = stored_hash.split("$")
-    except ValueError:
-        return False
+        if algorithm != "pbkdf2_sha256":
+            return False
 
-    if algorithm != "pbkdf2_sha256":
-        return False
-
-    try:
         iterations = int(iterations_str)
-    except ValueError:
+        salt = _b64decode(salt_b64)
+        expected_derived = _b64decode(derived_b64)
+    except (ValueError, TypeError):
         return False
 
-    salt = _b64decode(salt_b64)
-    expected_derived = _b64decode(derived_b64)
     candidate_derived = hashlib.pbkdf2_hmac(
         "sha256",
         password.encode("utf-8"),
@@ -79,41 +58,73 @@ def verify_password(password: str, stored_hash: str) -> bool:
     return hmac.compare_digest(candidate_derived, expected_derived)
 
 
-def _sign(payload: bytes) -> str:
-    signature = hmac.new(TOKEN_SECRET.encode("utf-8"), payload, hashlib.sha256).digest()
-    return _b64encode(signature)
+def hash_password(password: str) -> str:
+    return _password_hasher.hash(password)
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    if stored_hash.startswith(LEGACY_PBKDF2_PREFIX):
+        return _verify_legacy_pbkdf2(password, stored_hash)
+
+    try:
+        return _password_hasher.verify(stored_hash, password)
+    except (VerificationError, InvalidHashError):
+        return False
+
+
+def verify_and_rehash_password(
+    password: str,
+    stored_hash: str,
+) -> tuple[bool, str | None]:
+    if stored_hash.startswith(LEGACY_PBKDF2_PREFIX):
+        if not _verify_legacy_pbkdf2(password, stored_hash):
+            return False, None
+        return True, hash_password(password)
+
+    try:
+        valid = _password_hasher.verify(stored_hash, password)
+    except (VerificationError, InvalidHashError):
+        return False, None
+
+    if valid and _password_hasher.check_needs_rehash(stored_hash):
+        return True, hash_password(password)
+
+    return valid, None
 
 
 def create_access_token(*, administrador: Administrador) -> str:
-    exp = datetime.now(UTC) + timedelta(hours=TOKEN_EXPIRES_HOURS)
+    settings = get_settings()
+    now = datetime.now(UTC)
+    expires_at = now + timedelta(hours=settings.token_expires_hours)
+
     payload = {
         "sub": str(administrador.id),
         "usuario": administrador.usuario,
-        "exp": int(exp.timestamp()),
+        "iat": int(now.timestamp()),
+        "exp": int(expires_at.timestamp()),
     }
-    payload_bytes = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-    return f"{_b64encode(payload_bytes)}.{_sign(payload_bytes)}"
+
+    return jwt.encode(
+        payload,
+        settings.admin_auth_secret,
+        algorithm=JWT_ALGORITHM,
+    )
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    try:
-        payload_b64, signature = token.split(".")
-        payload_bytes = _b64decode(payload_b64)
-    except ValueError as exc:
-        raise UnauthorizedError("Token inválido o mal formado") from exc
-
-    expected_signature = _sign(payload_bytes)
-    if not hmac.compare_digest(signature, expected_signature):
-        raise UnauthorizedError("Token inválido o alterado")
+    settings = get_settings()
 
     try:
-        payload = json.loads(payload_bytes.decode("utf-8"))
-    except json.JSONDecodeError as exc:
+        payload = jwt.decode(
+            token,
+            settings.admin_auth_secret,
+            algorithms=[JWT_ALGORITHM],
+            options={"require": ["sub", "iat", "exp"]},
+        )
+    except jwt.ExpiredSignatureError as exc:
+        raise UnauthorizedError("Token expirado. Vuelve a iniciar sesión") from exc
+    except jwt.InvalidTokenError as exc:
         raise UnauthorizedError("Token inválido o mal formado") from exc
-
-    exp = payload.get("exp")
-    if not isinstance(exp, int) or datetime.now(UTC).timestamp() > exp:
-        raise UnauthorizedError("Token expirado. Vuelve a iniciar sesión")
 
     return payload
 
@@ -126,17 +137,16 @@ def get_current_administrador(
 
     payload = decode_access_token(credentials.credentials)
     administrador_id = payload.get("sub")
-    if administrador_id is None:
-        raise UnauthorizedError("Token inválido o mal formado")
+
+    try:
+        administrador_pk = int(administrador_id)
+    except (TypeError, ValueError) as exc:
+        raise UnauthorizedError("Token inválido o mal formado") from exc
 
     with SessionLocal() as session:
-        try:
-            administrador_pk = int(administrador_id)
-        except (TypeError, ValueError) as exc:
-            raise UnauthorizedError("Token inválido o mal formado") from exc
-
         administrador = session.get(Administrador, administrador_pk)
         if not administrador or not administrador.activo:
             raise UnauthorizedError("Administrador no autorizado o inactivo")
+
         session.expunge(administrador)
         return administrador
