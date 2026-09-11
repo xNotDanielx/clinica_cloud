@@ -28,18 +28,18 @@ export default function CreatePatientModal({
 
   return (
 <div
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm"
+    className="modal-backdrop"
     onClick={closeCreatePatientModal}
   >
     <div
       className="relative w-full max-w-2xl rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="border-b border-white/10 bg-white/5 px-6 py-5">
-        <div className="flex items-start justify-between gap-4">
+      <div className="modal-header">
+        <div className="modal-heading-row">
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/80">Pacientes</p>
-            <h2 className="mt-2 text-2xl font-black text-white">Agregar paciente</h2>
+            <p className="modal-kicker">Pacientes</p>
+            <h2 className="modal-title">Agregar paciente</h2>
             <p className="mt-2 text-sm text-slate-300">
               Registra solo los datos necesarios del paciente.
             </p>
@@ -47,7 +47,7 @@ export default function CreatePatientModal({
           <button
             type="button"
             onClick={closeCreatePatientModal}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20"
+            className="modal-close-button"
           >
             ×
           </button>
@@ -55,24 +55,24 @@ export default function CreatePatientModal({
       </div>
 
       <form onSubmit={handleCreatePatient} className="px-6 py-6">
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="form-grid">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Identificación</label>
+            <label className="form-label">Identificación</label>
             <input
               name="identificacion"
               value={createPatientForm.identificacion}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Tipo de identificación</label>
+            <label className="form-label">Tipo de identificación</label>
             <select
               name="tipo_identificacion"
               value={createPatientForm.tipo_identificacion}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control form-select"
             >
               <option value="cedula_chilena">Cédula chilena</option>
               <option value="cedula_extranjero">Cédula extranjero</option>
@@ -83,53 +83,53 @@ export default function CreatePatientModal({
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-200">Nombre completo</label>
+            <label className="form-label">Nombre completo</label>
             <input
               name="nombre_completo"
               value={createPatientForm.nombre_completo}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Teléfono</label>
+            <label className="form-label">Teléfono</label>
             <input
               name="telefono"
               value={createPatientForm.telefono}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Email</label>
+            <label className="form-label">Email</label>
             <input
               name="email"
               type="email"
               value={createPatientForm.email}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-200">Dirección</label>
+            <label className="form-label">Dirección</label>
             <input
               name="direccion"
               value={createPatientForm.direccion}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Sexo</label>
+            <label className="form-label">Sexo</label>
             <select
               name="sexo"
               value={createPatientForm.sexo}
               onChange={handleCreatePatientInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control form-select"
             >
               <option value="masculino">Masculino</option>
               <option value="femenino">Femenino</option>
@@ -151,18 +151,18 @@ export default function CreatePatientModal({
 
         {createPatientError && <p className="mt-4 text-sm text-rose-300">{createPatientError}</p>}
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="form-actions">
           <button
             type="submit"
             disabled={isCreatingPatient}
-            className="w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="admin-submit-button"
           >
             {isCreatingPatient ? "Guardando..." : "Guardar paciente"}
           </button>
           <button
             type="button"
             onClick={closeCreatePatientModal}
-            className="w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            className="admin-cancel-button"
           >
             Cancelar
           </button>

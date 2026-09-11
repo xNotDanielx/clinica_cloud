@@ -89,14 +89,6 @@ export function useAppointments(activeTab: TabKey, loggedIn: boolean) {
     }
   };
 
-  const loadProcedures = async () => {
-    try {
-      setProcedures(await getActiveProcedures());
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const findAppointments = async (query: string) => {
     try {
       setAppointments(await searchAppointments(query));
@@ -107,9 +99,27 @@ export function useAppointments(activeTab: TabKey, loggedIn: boolean) {
 
   useEffect(() => {
     if (!loggedIn) return;
-    loadAppointments();
-    loadPendingAppointments();
-    loadProcedures();
+
+    let cancelled = false;
+
+    void Promise.all([
+      getAppointments(),
+      getPendingAppointments(),
+      getActiveProcedures(),
+    ])
+      .then(([appointmentsData, pendingAppointmentsData, proceduresData]) => {
+        if (cancelled) return;
+        setAppointments(appointmentsData);
+        setPendingAppointments(pendingAppointmentsData);
+        setProcedures(proceduresData);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [loggedIn]);
 
   useEffect(() => {

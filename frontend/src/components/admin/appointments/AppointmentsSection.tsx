@@ -61,31 +61,31 @@ export default function AppointmentsSection({
     <table className="min-w-full divide-y divide-white/10">
       <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
         <tr>
-          <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Paciente</th>
-          <th className="px-6 py-4">Fecha</th>
-          <th className="px-6 py-4">Hora</th>
-          <th className="px-6 py-4">Monto final</th>
-          <th className="px-6 py-4">Estado</th>
-          <th className="px-6 py-4">Acciones</th>
+          <th className="table-cell">ID</th>
+          <th className="table-cell">Paciente</th>
+          <th className="table-cell">Fecha</th>
+          <th className="table-cell">Hora</th>
+          <th className="table-cell">Monto final</th>
+          <th className="table-cell">Estado</th>
+          <th className="table-cell">Acciones</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-white/10 bg-slate-950/70 text-sm text-slate-200">
         {appointments.map((appointment) => (
           <tr key={appointment.id}>
-            <td className="px-6 py-4 font-semibold text-cyan-300">{appointment.id}</td>
-            <td className="px-6 py-4">
+            <td className="table-cell font-semibold text-cyan-300">{appointment.id}</td>
+            <td className="table-cell">
               <div>
                 <p className="font-medium text-white">{appointment.nombre_paciente || "Sin nombre"}</p>
                 <p className="text-xs text-slate-400">{appointment.id_paciente}</p>
               </div>
             </td>
-            <td className="px-6 py-4">{appointment.fecha_programada}</td>
-            <td className="px-6 py-4">
+            <td className="table-cell">{appointment.fecha_programada}</td>
+            <td className="table-cell">
               {appointment.hora_inicio} - {appointment.hora_fin}
             </td>
-            <td className="px-6 py-4">{formatCurrency(appointment.monto_final)}</td>
-            <td className="px-6 py-4">
+            <td className="table-cell">{formatCurrency(appointment.monto_final)}</td>
+            <td className="table-cell">
               <span
                 className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
                   statusClasses[appointment.estado as keyof typeof statusClasses] ||
@@ -95,7 +95,7 @@ export default function AppointmentsSection({
                 {appointment.estado}
               </span>
             </td>
-            <td className="px-6 py-4">
+            <td className="table-cell">
               <div className="flex gap-2">
                 <button
                   className="rounded-2xl bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20"

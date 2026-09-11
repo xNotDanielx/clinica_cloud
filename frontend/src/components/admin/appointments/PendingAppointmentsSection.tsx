@@ -29,28 +29,28 @@ export default function PendingAppointmentsSection({
     <table className="min-w-full divide-y divide-white/10">
       <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
         <tr>
-          <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Paciente</th>
-          <th className="px-6 py-4">Fecha</th>
-          <th className="px-6 py-4">Hora</th>
-          <th className="px-6 py-4">Acciones</th>
+          <th className="table-cell">ID</th>
+          <th className="table-cell">Paciente</th>
+          <th className="table-cell">Fecha</th>
+          <th className="table-cell">Hora</th>
+          <th className="table-cell">Acciones</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-white/10 bg-slate-950/70 text-sm text-slate-200">
         {authorizations.map((item) => (
           <tr key={item.id}>
-            <td className="px-6 py-4 font-semibold text-cyan-300">{item.id}</td>
-            <td className="px-6 py-4">
+            <td className="table-cell font-semibold text-cyan-300">{item.id}</td>
+            <td className="table-cell">
               <div>
                 <p className="font-medium text-white">{item.nombre_paciente || "Sin nombre"}</p>
                 <p className="text-xs text-slate-400">{item.id_paciente}</p>
               </div>
             </td>
-            <td className="px-6 py-4">{item.fecha_programada}</td>
-            <td className="px-6 py-4">
+            <td className="table-cell">{item.fecha_programada}</td>
+            <td className="table-cell">
               {item.hora_inicio} - {item.hora_fin}
             </td>
-            <td className="px-6 py-4">
+            <td className="table-cell">
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => autorizarCita(item.id)}

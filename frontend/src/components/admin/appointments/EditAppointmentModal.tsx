@@ -38,38 +38,38 @@ export default function EditAppointmentModal({
 
   return (
 <div
-    className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm"
+    className="modal-backdrop"
     onClick={closeEditAppointmentModal}
   >
     <div
       className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
       onClick={(event) => event.stopPropagation()}
     >
-      <div className="border-b border-white/10 bg-white/5 px-6 py-5">
-        <div className="flex items-start justify-between gap-4">
+      <div className="modal-header">
+        <div className="modal-heading-row">
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/80">Citas</p>
-            <h2 className="mt-2 text-2xl font-black text-white">Editar cita</h2>
+            <p className="modal-kicker">Citas</p>
+            <h2 className="modal-title">Editar cita</h2>
           </div>
           <button
             type="button"
             onClick={closeEditAppointmentModal}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20"
+            className="modal-close-button"
           >
             ×
           </button>
         </div>
       </div>
 
-      <form onSubmit={handleEditAppointment} className="max-h-[85vh] overflow-y-auto px-6 py-6">
-        <div className="grid gap-4 md:grid-cols-2">
+      <form onSubmit={handleEditAppointment} className="modal-body">
+        <div className="form-grid">
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-200">Paciente</label>
+            <label className="form-label">Paciente</label>
             <select
               name="id_paciente"
               value={editAppointmentForm.id_paciente}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control form-select"
             >
               <option value="">Selecciona un paciente</option>
               {patients.map((patient) => (
@@ -81,23 +81,23 @@ export default function EditAppointmentModal({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Fecha</label>
+            <label className="form-label">Fecha</label>
             <input
               type="date"
               name="fecha_programada"
               value={editAppointmentForm.fecha_programada}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Estado</label>
+            <label className="form-label">Estado</label>
             <select
               name="estado"
               value={editAppointmentForm.estado}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control form-select"
             >
               <option value="pendiente_aprobacion">Pendiente aprobación</option>
               <option value="aprobada">Aprobada</option>
@@ -106,58 +106,58 @@ export default function EditAppointmentModal({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Hora inicio</label>
+            <label className="form-label">Hora inicio</label>
             <input
               type="time"
               name="hora_inicio"
               value={editAppointmentForm.hora_inicio}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Hora fin</label>
+            <label className="form-label">Hora fin</label>
             <input
               type="time"
               name="hora_fin"
               value={editAppointmentForm.hora_fin}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Valor consulta</label>
+            <label className="form-label">Valor consulta</label>
             <input
               type="number"
               step="0.01"
               name="valor_consulta"
               value={editAppointmentForm.valor_consulta}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-200">Código promocional</label>
+            <label className="form-label">Código promocional</label>
             <input
               type="number"
               name="id_codigo_promocional"
               value={editAppointmentForm.id_codigo_promocional}
               onChange={handleEditAppointmentInputChange}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
           <div className="md:col-span-2">
-            <label className="mb-2 block text-sm font-medium text-slate-200">Nota</label>
+            <label className="form-label">Nota</label>
             <textarea
               name="nota"
               value={editAppointmentForm.nota}
               onChange={handleEditAppointmentInputChange}
               rows={4}
-              className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+              className="form-control"
             />
           </div>
 
@@ -190,18 +190,18 @@ export default function EditAppointmentModal({
           <p className="mt-4 text-sm text-rose-300">{editAppointmentError}</p>
         )}
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <div className="form-actions">
           <button
             type="submit"
             disabled={isEditingAppointment}
-            className="w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="admin-submit-button"
           >
             {isEditingAppointment ? "Guardando..." : "Actualizar cita"}
           </button>
           <button
             type="button"
             onClick={closeEditAppointmentModal}
-            className="w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            className="admin-cancel-button"
           >
             Cancelar
           </button>

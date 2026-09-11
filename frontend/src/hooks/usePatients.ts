@@ -68,7 +68,21 @@ export function usePatients(activeTab: TabKey, loggedIn: boolean) {
   };
 
   useEffect(() => {
-    if (loggedIn) loadPatients();
+    if (!loggedIn) return;
+
+    let cancelled = false;
+
+    void getPatients()
+      .then((patientsData) => {
+        if (!cancelled) setPatients(patientsData);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [loggedIn]);
 
   useEffect(() => {

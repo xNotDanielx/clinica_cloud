@@ -48,21 +48,21 @@ export default function PatientsSection({
     <table className="min-w-full divide-y divide-white/10">
       <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
         <tr>
-          <th className="px-6 py-4">ID</th>
-          <th className="px-6 py-4">Nombre</th>
-          <th className="px-6 py-4">Teléfono</th>
-          <th className="px-6 py-4">Correo</th>
-          <th className="px-6 py-4">Acciones</th>
+          <th className="table-cell">ID</th>
+          <th className="table-cell">Nombre</th>
+          <th className="table-cell">Teléfono</th>
+          <th className="table-cell">Correo</th>
+          <th className="table-cell">Acciones</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-white/10 bg-slate-950/70 text-sm text-slate-200">
         {patients.map((patient) => (
           <tr key={patient.identificacion}>
-            <td className="px-6 py-4 font-semibold text-cyan-300">{patient.identificacion}</td>
-            <td className="px-6 py-4">{patient.nombre_completo}</td>
-            <td className="px-6 py-4">{patient.telefono}</td>
-            <td className="px-6 py-4">{patient.email}</td>
-            <td className="px-6 py-4">
+            <td className="table-cell font-semibold text-cyan-300">{patient.identificacion}</td>
+            <td className="table-cell">{patient.nombre_completo}</td>
+            <td className="table-cell">{patient.telefono}</td>
+            <td className="table-cell">{patient.email}</td>
+            <td className="table-cell">
               <div className="flex gap-2">
                 <button
                   onClick={() => openEditPatientModal(patient)}

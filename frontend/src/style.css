@@ -133,3 +133,44 @@ body {
 .procedure-option-active {
   @apply border-cyan-400 bg-cyan-400/15 text-white;
 }
+
+/* Shared admin UI patterns */
+.modal-header {
+  @apply border-b border-white/10 bg-white/5 px-6 py-5;
+}
+
+.modal-kicker {
+  @apply text-sm uppercase tracking-[0.3em] text-cyan-200/80;
+}
+
+.modal-title {
+  @apply mt-2 text-2xl font-black text-white;
+}
+
+.form-grid {
+  @apply grid gap-4 md:grid-cols-2;
+}
+
+.form-actions {
+  @apply mt-6 flex flex-col gap-3 sm:flex-row;
+}
+
+.admin-submit-button {
+  @apply w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.admin-cancel-button {
+  @apply w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10;
+}
+
+.modal-heading-row {
+  @apply flex items-start justify-between gap-4;
+}
+
+.modal-body {
+  @apply max-h-[85vh] overflow-y-auto px-6 py-6;
+}
+
+.table-cell {
+  @apply px-6 py-4;
+}

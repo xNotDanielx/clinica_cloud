@@ -89,19 +89,22 @@ export function usePublicBooking() {
   }, []);
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, hora: "" }));
+    if (!form.fecha) return;
 
-    if (!form.fecha) {
-      setAvailableHours([]);
-      return;
-    }
+    let cancelled = false;
 
-    getAvailableHours(form.fecha)
-      .then(setAvailableHours)
+    void getAvailableHours(form.fecha)
+      .then((hours) => {
+        if (!cancelled) setAvailableHours(hours);
+      })
       .catch((error) => {
         console.error("Error cargando horarios:", error);
-        setAvailableHours([]);
+        if (!cancelled) setAvailableHours([]);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [form.fecha]);
 
   const toggleProcedure = (name: string) => {
@@ -142,6 +145,12 @@ export function usePublicBooking() {
         ...prev,
         [name]: value.replace(/\D/g, "").slice(0, 20),
       }));
+      return;
+    }
+
+    if (name === "fecha") {
+      setForm((prev) => ({ ...prev, fecha: value, hora: "" }));
+      if (!value) setAvailableHours([]);
       return;
     }
 
