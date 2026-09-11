@@ -1,8 +1,9 @@
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, cast, String
+
+from app.common.exceptions import ConflictError, NotFoundError
 from app.models.paciente import Paciente
 from app.schemas.paciente import PacienteCreate, PacienteUpdate
-from app.common.exceptions import ConflictError, NotFoundError
 
 
 class PacienteService:
@@ -16,61 +17,92 @@ class PacienteService:
         session.add(paciente)
         session.flush()
         return paciente
-    
+
     @staticmethod
-    def crear_o_obtener_paciente(session: Session, data: PacienteCreate) -> Paciente:
-        paciente = PacienteService.buscar_por_identificacion(session, data.identificacion)
+    def buscar_por_identificacion(
+        session: Session,
+        identificacion: str,
+    ) -> Paciente | None:
+        return session.get(Paciente, identificacion)
+
+    @staticmethod
+    def obtener_por_identificacion(
+        session: Session,
+        identificacion: str,
+    ) -> Paciente:
+        paciente = PacienteService.buscar_por_identificacion(session, identificacion)
+        if not paciente:
+            raise NotFoundError("Paciente no encontrado")
+        return paciente
+
+    @staticmethod
+    def crear_o_obtener_paciente(
+        session: Session,
+        data: PacienteCreate,
+    ) -> Paciente:
+        paciente = PacienteService.buscar_por_identificacion(
+            session,
+            data.identificacion,
+        )
         if paciente:
             return paciente
         return PacienteService.crear_paciente(session, data)
 
     @staticmethod
-    def buscar_por_identificacion(session: Session, identificacion: str) -> Paciente:
-        paciente = session.get(Paciente, identificacion)
-        if not paciente:
-            return
-        return paciente
+    def actualizar_datos(
+        session: Session,
+        identificacion: str,
+        data: PacienteUpdate,
+    ) -> Paciente:
+        paciente = PacienteService.obtener_por_identificacion(
+            session,
+            identificacion,
+        )
 
-    @staticmethod
-    def actualizar_datos(session: Session, identificacion: str, data: PacienteUpdate) -> Paciente:
-        paciente = PacienteService.buscar_por_identificacion(session, identificacion)
-        cambios = data.model_dump(exclude_unset=True)
-        for campo, valor in cambios.items():
+        for campo, valor in data.model_dump(exclude_unset=True).items():
             setattr(paciente, campo, valor)
+
         session.flush()
         return paciente
 
     @staticmethod
-    def listar_pacientes_activos(session: Session):
-        return session.query(Paciente).filter(Paciente.activo.is_(True)).all()
-    
-    @staticmethod
-    def filtrar_pacientes(session: Session, buscar: str | None = None):
-        query = session.query(Paciente).filter(
-            Paciente.activo.is_(True)
+    def listar_pacientes_activos(session: Session) -> list[Paciente]:
+        return (
+            session.query(Paciente)
+            .filter(Paciente.activo.is_(True))
+            .order_by(Paciente.nombre_completo)
+            .all()
         )
 
+    @staticmethod
+    def filtrar_pacientes(
+        session: Session,
+        buscar: str | None = None,
+    ) -> list[Paciente]:
+        query = session.query(Paciente).filter(Paciente.activo.is_(True))
+
         if buscar:
+            termino = f"%{buscar.strip()}%"
             query = query.filter(
                 or_(
-                    cast(Paciente.identificacion, String).ilike(f"%{buscar}%"),
-                    Paciente.nombre_completo.ilike(f"%{buscar}%"),
-                    Paciente.telefono.ilike(f"%{buscar}%"),
-                    Paciente.email.ilike(f"%{buscar}%"),
-                    Paciente.direccion.ilike(f"%{buscar}%"),
-                    Paciente.nacionalidad.ilike(f"%{buscar}%"),
-                    Paciente.sexo.ilike(f"%{buscar}%"),
-                    Paciente.genero.ilike(f"%{buscar}%"),
+                    cast(Paciente.identificacion, String).ilike(termino),
+                    Paciente.nombre_completo.ilike(termino),
+                    Paciente.telefono.ilike(termino),
+                    Paciente.email.ilike(termino),
+                    Paciente.direccion.ilike(termino),
+                    Paciente.nacionalidad.ilike(termino),
+                    Paciente.sexo.ilike(termino),
+                    Paciente.genero.ilike(termino),
                 )
             )
 
-        return query.all()
-    
+        return query.order_by(Paciente.nombre_completo).all()
+
     @staticmethod
-    def eliminar_paciente(session: Session, identificacion: str):
-        paciente = PacienteService.buscar_por_identificacion(session, identificacion)
-        if not paciente:
-            raise NotFoundError("Paciente no encontrado")
-        
+    def eliminar_paciente(session: Session, identificacion: str) -> None:
+        paciente = PacienteService.obtener_por_identificacion(
+            session,
+            identificacion,
+        )
         paciente.activo = False
         session.flush()

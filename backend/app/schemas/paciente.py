@@ -1,21 +1,23 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.common.enums import Genero, Sexo, TipoDocumento
 
 
 class PacienteBase(BaseModel):
-    identificacion: str
-    tipo_identificacion: str
-    nombre_completo: str
-    telefono: str
-    email: str
-    direccion: str
-    sexo: str
-    nacionalidad: str | None = None
-    genero: str | None = None
+    identificacion: str = Field(min_length=1, max_length=20)
+    tipo_identificacion: TipoDocumento
+    nombre_completo: str = Field(min_length=1, max_length=150)
+    telefono: str = Field(min_length=1, max_length=30)
+    email: str = Field(min_length=1, max_length=100)
+    direccion: str = Field(min_length=1, max_length=150)
+    sexo: Sexo
+    nacionalidad: str | None = Field(default=None, max_length=150)
+    genero: Genero | None = None
     fecha_nacimiento: datetime | None = None
-    altura: float | None = None
-    peso: float | None = None
+    altura: float | None = Field(default=None, gt=0)
+    peso: float | None = Field(default=None, gt=0)
     activo: bool = True
 
 
@@ -24,18 +26,35 @@ class PacienteCreate(PacienteBase):
 
 
 class PacienteUpdate(BaseModel):
-    tipo_identificacion: str | None = None
-    nombre_completo: str | None = None
-    telefono: str | None = None
-    email: str | None = None
-    direccion: str | None = None
-    sexo: str | None = None
-    nacionalidad: str | None = None
-    genero: str | None = None
+    tipo_identificacion: TipoDocumento | None = None
+    nombre_completo: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
+    telefono: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=30,
+    )
+    email: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+    )
+    direccion: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=150,
+    )
+    sexo: Sexo | None = None
+    nacionalidad: str | None = Field(default=None, max_length=150)
+    genero: Genero | None = None
     fecha_nacimiento: datetime | None = None
-    altura: float | None = None
-    peso: float | None = None
+    altura: float | None = Field(default=None, gt=0)
+    peso: float | None = Field(default=None, gt=0)
     activo: bool | None = None
+
 
 class PacienteOut(PacienteBase):
     fecha_ultima_actualizacion: datetime

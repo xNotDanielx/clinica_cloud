@@ -1,59 +1,55 @@
-import time
+import logging
 from decimal import Decimal
+from pathlib import Path
 
-from sqlalchemy import inspect, select, text
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import select
 
-from app.db.database import Base, engine, SessionLocal
+from app.db.database import SessionLocal
 from app.models.procedimiento import Procedimiento
 from app.seed_data.procedimientos import PROCEDIMIENTOS_INICIALES
 
 
+logger = logging.getLogger(__name__)
+
+
+def run_migrations() -> None:
+    backend_root = Path(__file__).resolve().parents[2]
+    config = Config(str(backend_root / "alembic.ini"))
+    command.upgrade(config, "head")
+
+
 def seed_procedimientos() -> None:
-    ultimo_error: Exception | None = None
-
-    for _ in range(30):
-        try:
-            with engine.connect():
-                break
-        except Exception as error:
-            ultimo_error = error
-            time.sleep(2)
-    else:
-        raise ultimo_error or RuntimeError("No fue posible conectar con la base de datos")
-
-    Base.metadata.create_all(bind=engine)
-
-    inspector = inspect(engine)
-    procedimientos_columns = {column["name"] for column in inspector.get_columns("procedimientos", schema="public")}
-    if "url_imagen" not in procedimientos_columns:
-        with engine.begin() as connection:
-            connection.execute(
-                text("ALTER TABLE public.procedimientos ADD COLUMN url_imagen VARCHAR(255)")
-            )
-
-    session = SessionLocal()
-    try:
+    with SessionLocal() as session:
         with session.begin():
             for item in PROCEDIMIENTOS_INICIALES:
                 procedimiento = session.scalar(
-                    select(Procedimiento).where(Procedimiento.nombre == item["nombre"])
+                    select(Procedimiento).where(
+                        Procedimiento.nombre == item["nombre"]
+                    )
                 )
 
                 if procedimiento is not None:
                     continue
 
-                procedimiento = Procedimiento(
-                    nombre=item["nombre"],
-                    descripcion=item["descripcion"],
-                    precio=Decimal(item["precio"]),
-                    url_imagen=item["url_imagen"],
-                    activo=True,
+                session.add(
+                    Procedimiento(
+                        nombre=item["nombre"],
+                        descripcion=item["descripcion"],
+                        precio=Decimal(item["precio"]),
+                        url_imagen=item["url_imagen"],
+                        activo=True,
+                    )
                 )
-                session.add(procedimiento)
-    finally:
-        session.close()
+
+
+def bootstrap_database() -> None:
+    run_migrations()
+    seed_procedimientos()
 
 
 if __name__ == "__main__":
-    seed_procedimientos()
-    print("Procedimientos iniciales cargados correctamente.")
+    logging.basicConfig(level=logging.INFO)
+    bootstrap_database()
+    logger.info("Base de datos preparada correctamente.")
