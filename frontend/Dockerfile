@@ -4,6 +4,8 @@ FROM node:22-slim
 
 WORKDIR /app
 
+RUN npm install -g npm@latest
+
 COPY package*.json ./
 
 RUN npm ci --no-audit --no-fund
