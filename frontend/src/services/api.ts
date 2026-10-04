@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = `${window.location.protocol}//${window.location.hostname}:8000`;
+const DEFAULT_API_URL = "/api";
 
 export const API_URL = (
   import.meta.env.VITE_BACKEND_URL || DEFAULT_API_URL
