@@ -1,15 +1,28 @@
-from datetime import date
+from datetime import date, timedelta
+from calendar import monthrange
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.routes.deps import get_db
 from app.routes.errors import to_http_exception
-from app.schemas.cita import CitaCambiarEstadoRequest, CitaCreateRequest, CitaOut, CitaPublicaRequest
+from app.schemas.cita import CitaCambiarEstadoRequest, CitaCreateRequest, CitaOut, CitaPublicaRequest, CitaPublicaOut
+from app.services.booking_policy import TIMEZONE, booking_limits
 from app.services.cita_service import CitaService
 from app.common.security import get_current_administrador
+from app.schemas.cita import SeguimientoRequest, SeguimientoOut
+from fastapi import Response
 
 router = APIRouter(prefix="/citas", tags=["Citas"])
+
+
+@router.post("/seguimiento", response_model=SeguimientoOut)
+def consultar_seguimiento(payload: SeguimientoRequest, response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return CitaService.consultar_seguimiento(db, payload.codigo)
+    except Exception as error:
+        raise to_http_exception(error)
 
 
 @router.post("", response_model=CitaOut, status_code=201)
@@ -34,8 +47,9 @@ def crear_cita(payload: CitaCreateRequest, db: Session = Depends(get_db), admini
         db.rollback()
         raise to_http_exception(error)
     
-@router.post("/publica", response_model=CitaOut, status_code=201)
-def crear_cita_publica(payload: CitaPublicaRequest, db: Session = Depends(get_db)):
+@router.post("/publica", response_model=CitaPublicaOut, status_code=201)
+def crear_cita_publica(payload: CitaPublicaRequest, response: Response, db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "no-store"
     try:
         cita = CitaService.crear_cita_publica(
             db,
@@ -55,7 +69,7 @@ def crear_cita_publica(payload: CitaPublicaRequest, db: Session = Depends(get_db
         return cita
     except Exception as error:
         db.rollback()
-        raise error
+        raise to_http_exception(error)
     
 from app.schemas.cita import CitaUpdate
 
@@ -120,9 +134,9 @@ def aprobar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depe
         db.commit()
         db.refresh(cita)
         return cita
-    except Exception as e:
-        print(e)
-        raise
+    except Exception as error:
+        db.rollback()
+        raise to_http_exception(error)
 
 @router.patch("/{cita_id}/rechazar", response_model=CitaOut)
 def rechazar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depends(get_current_administrador)):
@@ -131,9 +145,9 @@ def rechazar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Dep
         db.commit()
         db.refresh(cita)
         return cita
-    except Exception as e:
-        print(e)
-        raise
+    except Exception as error:
+        db.rollback()
+        raise to_http_exception(error)
     
 @router.delete("/{cita_id}", status_code=204)
 def eliminar_cita(cita_id: int, db: Session = Depends(get_db), administrador=Depends(get_current_administrador)):
@@ -153,4 +167,22 @@ def horarios_disponibles(
     return {
         "fecha": fecha.isoformat(),
         "horarios": horarios,
+    }
+
+
+@router.get("/calendario")
+def calendario(
+    mes: date | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    minimum, maximum = booking_limits()
+    requested = (mes or minimum).replace(day=1)
+    start = max(minimum.replace(day=1), min(requested, maximum.replace(day=1)))
+    end = start + timedelta(days=monthrange(start.year, start.month)[1] - 1)
+    return {
+        "zona_horaria": TIMEZONE,
+        "fecha_minima": minimum.isoformat(),
+        "fecha_maxima": maximum.isoformat(),
+        "mes": start.isoformat(),
+        "dias": CitaService.obtener_calendario(db, start, end),
     }

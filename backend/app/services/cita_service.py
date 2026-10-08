@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from datetime import date, time, timedelta, datetime
 from decimal import Decimal, ROUND_HALF_UP
+import hashlib
+import secrets
 
-from sqlalchemy import select, or_, cast, String
+from sqlalchemy import select, or_, cast, String, text
 from sqlalchemy.orm import Session, selectinload
 
 from app.common.enums import EstadoCita
@@ -17,9 +19,16 @@ from app.common.exceptions import ConflictError, NotFoundError, ValidationError
 from app.schemas.paciente import PacienteCreate
 from app.services.paciente_service import PacienteService
 from app.schemas.cita import CitaUpdate
+from app.services.booking_policy import SLOT_HOURS, TIMEZONE, booking_limits, validate_public_slot
 
 
 class CitaService:
+    @staticmethod
+    def bloquear_agenda(session: Session) -> None:
+        # One clinic agenda: serialize writers until commit, including empty slots.
+        if session.get_bind().dialect.name == "postgresql":
+            session.execute(text("SELECT pg_advisory_xact_lock(724031)"))
+
     @staticmethod
     def verificar_disponibilidad_horario(
         session: Session,
@@ -29,6 +38,7 @@ class CitaService:
         cita_id_ignorar: int | None = None,
     ) -> None:
         stmt = select(Cita.id).where(
+            Cita.activo.is_(True),
             Cita.fecha_programada == fecha_programada,
             Cita.estado != EstadoCita.CANCELADA.value,
             Cita.hora_inicio < hora_fin,
@@ -76,6 +86,7 @@ class CitaService:
         nota: str | None = None,
         estado: EstadoCita = EstadoCita.PENDIENTE_APROBACION,
     ) -> Cita:
+        CitaService.bloquear_agenda(session)
         paciente = session.get(Paciente, id_paciente)
         if not paciente:
             raise NotFoundError("Paciente no encontrado")
@@ -150,6 +161,10 @@ class CitaService:
         valor_consulta: Decimal = Decimal("0.00"),
     ):
         try:
+            validate_public_slot(fecha_programada, hora)
+            if not 1 <= len(set(procedimiento_ids)) <= 2:
+                raise ValidationError("Selecciona uno o dos procedimientos.")
+            CitaService.bloquear_agenda(db)
             paciente_data = PacienteCreate(
                 identificacion=identificacion,
                 tipo_identificacion=tipo_identificacion,
@@ -176,8 +191,12 @@ class CitaService:
                 nota=nota,
             )
 
+            # Only the digest is persisted; the bearer code is delivered once.
+            codigo = secrets.token_urlsafe(32)
+            cita.seguimiento_hash = hashlib.sha256(codigo.encode()).hexdigest()
             db.commit()
             db.refresh(cita)
+            cita.codigo_seguimiento = codigo
             return cita
 
         except Exception:
@@ -186,6 +205,7 @@ class CitaService:
 
     @staticmethod
     def actualizar_cita(session: Session, cita_id: int, data: CitaUpdate) -> Cita:
+        CitaService.bloquear_agenda(session)
         cita = (
             session.query(Cita)
             .options(selectinload(Cita.citas_procedimientos))
@@ -275,6 +295,19 @@ class CitaService:
         return cita
 
     @staticmethod
+    def consultar_seguimiento(session: Session, codigo: str) -> dict:
+        digest = hashlib.sha256(codigo.encode()).hexdigest()
+        cita = session.scalar(select(Cita).where(Cita.seguimiento_hash == digest))
+        if not cita:
+            raise NotFoundError("No encontramos una solicitud con ese código.")
+        return {
+            "estado": cita.estado if cita.activo else EstadoCita.CANCELADA.value,
+            "fecha_programada": cita.fecha_programada,
+            "hora_inicio": cita.hora_inicio,
+            "zona_horaria": TIMEZONE,
+        }
+
+    @staticmethod
     def listar_citas_por_fecha(session: Session, fecha_programada: date) -> list[Cita]:
         stmt = (
             select(Cita)
@@ -293,10 +326,16 @@ class CitaService:
 
     @staticmethod
     def cambiar_estado_cita(session: Session, cita_id: int, nuevo_estado: EstadoCita) -> Cita:
+        CitaService.bloquear_agenda(session)
         cita = session.get(Cita, cita_id)
-        if not cita:
+        if not cita or not cita.activo:
             raise NotFoundError("Cita no encontrada")
 
+        if nuevo_estado != EstadoCita.CANCELADA:
+            CitaService.verificar_disponibilidad_horario(
+                session, cita.fecha_programada, cita.hora_inicio, cita.hora_fin,
+                cita_id_ignorar=cita.id,
+            )
         cita.estado = nuevo_estado.value
         session.flush()
         return cita
@@ -366,35 +405,29 @@ class CitaService:
         session.flush()
 
     @staticmethod
-    def obtener_horarios_disponibles(session: Session, fecha_programada: date) -> list[str]:
-        horarios_base = [
-            ("09:00", time(9, 0), time(10, 0)),
-            ("10:00", time(10, 0), time(11, 0)),
-            ("11:00", time(11, 0), time(12, 0)),
-            ("12:00", time(12, 0), time(13, 0)),
-            ("13:00", time(13, 0), time(14, 0)),
-            ("14:00", time(14, 0), time(15, 0)),
-            ("15:00", time(15, 0), time(16, 0)),
-            ("16:00", time(16, 0), time(17, 0)),
-            ("17:00", time(17, 0), time(18, 0)),
-            ("18:00", time(18, 0), time(19, 0)),
-        ]
-
+    def obtener_calendario(session: Session, inicio: date, fin: date) -> dict[str, list[str]]:
+        minimum, maximum = booking_limits()
         citas = session.execute(
-            select(Cita.hora_inicio, Cita.hora_fin).where(
-                Cita.fecha_programada == fecha_programada,
+            select(Cita.fecha_programada, Cita.hora_inicio, Cita.hora_fin).where(
+                Cita.fecha_programada.between(inicio, fin),
+                Cita.activo.is_(True),
                 Cita.estado != EstadoCita.CANCELADA.value,
             )
         ).all()
+        calendar = {}
+        day = inicio
+        while day <= fin:
+            slots = []
+            if minimum <= day <= maximum:
+                for label in SLOT_HOURS:
+                    start = time.fromisoformat(label)
+                    end = time(start.hour + 1)
+                    if not any(d == day and a < end and b > start for d, a, b in citas):
+                        slots.append(label)
+            calendar[day.isoformat()] = slots
+            day += timedelta(days=1)
+        return calendar
 
-        disponibles: list[str] = []
-
-        for label, slot_inicio, slot_fin in horarios_base:
-            ocupado = any(
-                cita_inicio < slot_fin and cita_fin > slot_inicio
-                for cita_inicio, cita_fin in citas
-            )
-            if not ocupado:
-                disponibles.append(label)
-
-        return disponibles
+    @staticmethod
+    def obtener_horarios_disponibles(session: Session, fecha_programada: date) -> list[str]:
+        return CitaService.obtener_calendario(session, fecha_programada, fecha_programada)[fecha_programada.isoformat()]

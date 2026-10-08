@@ -1,6 +1,7 @@
 import os
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.administrador import Administrador
@@ -28,7 +29,12 @@ def crear_administrador_por_defecto(db: Session) -> None:
     )
 
     db.add(nuevo_administrador)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # Otro worker pudo crear el mismo usuario entre la consulta y el insert.
+        db.rollback()
+        return
 
     print(
         f"Administrador por defecto creado: "

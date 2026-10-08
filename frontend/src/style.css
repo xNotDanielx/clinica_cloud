@@ -9,6 +9,38 @@ body {
   font-family: Inter, system-ui, sans-serif;
 }
 
+.chat-suggestions {
+  scrollbar-width: none;
+}
+
+.chat-suggestions::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-messages-scrollbar {
+  scrollbar-color: rgb(34 211 238 / 0.65) rgb(255 255 255 / 0.06);
+  scrollbar-width: thin;
+}
+
+.chat-messages-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-messages-scrollbar::-webkit-scrollbar-track {
+  background: rgb(255 255 255 / 0.06);
+  border-radius: 8px;
+}
+
+.chat-messages-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(34 211 238 / 0.65);
+  border: 2px solid #0b1220;
+  border-radius: 8px;
+}
+
+.chat-messages-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(103 232 249 / 0.85);
+}
+
 .nav-link-ghost {
   @apply rounded-full bg-transparent px-2 py-2 text-white/85 transition-all duration-300 hover:text-white hover:scale-105;
 }

@@ -1,36 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import Feedback from "../components/Feedback";
+import { useEffect, useRef, useState } from "react";
+import AdminAssistantWidget from "../components/AdminAssistantWidget";
 import AdminLogin from "../components/AdminLogin";
-import { apiFetch } from "../components/api";
+import AdminOverview from "../components/AdminOverview";
+import AdminModal from "../components/AdminModal";
+import { PatientList, AppointmentList, type Patient, type Appointment, type ListState } from "../components/AdminRecords";
+import { Activity, ArrowUpRight, CalendarDays, ClipboardCheck, LayoutDashboard, LogOut, Users, X } from "lucide-react";
+import "../admin.css";
+import { apiFetch, apiErrorMessage } from "../components/api";
 
 type TabKey = "Inicio" | "Pacientes" | "Citas" | "Autorizar Citas";
 
-const tabs: TabKey[] = ["Inicio", "Pacientes", "Citas", "Autorizar Citas"];
+const navigationIcons = { Inicio: LayoutDashboard, Pacientes: Users, Citas: CalendarDays, "Autorizar Citas": ClipboardCheck };
 const sidebarItems: TabKey[] = ["Inicio", "Pacientes", "Citas", "Autorizar Citas"];
-
-const statusClasses = {
-  pendiente_aprobacion: "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
-  aprobada: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-  cancelada: "bg-red-500/10 text-red-300 border-red-500/20",
-  Pendiente: "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
-  Confirmada: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-  Cancelada: "bg-red-500/10 text-red-300 border-red-500/20",
-};
-
-type Patient = {
-  identificacion: string;
-  tipo_identificacion: string;
-  nombre_completo: string;
-  telefono: string;
-  email: string;
-  direccion: string;
-  sexo: string;
-  nacionalidad?: string | null;
-  genero?: string | null;
-  fecha_nacimiento?: string | null;
-  altura?: number | null;
-  peso?: number | null;
-  activo: boolean;
-};
 
 type Procedure = {
   id: number;
@@ -40,25 +22,6 @@ type Procedure = {
   url_imagen?: string | null;
   activo: boolean;
   fecha_ultima_actualizacion: string;
-};
-
-type Appointment = {
-  id: number;
-  id_paciente: string;
-  nombre_paciente?: string | null;
-  id_codigo_promocional?: number | null;
-  fecha_programada: string;
-  hora_inicio: string;
-  hora_fin: string;
-  monto_base?: string | number | null;
-  monto_descuento?: string | number | null;
-  monto_final?: string | number | null;
-  nota?: string | null;
-  notas_asesoria?: string | null;
-  razon_rechazo?: string | null;
-  estado: string;
-  fecha_ultima_actualizacion?: string;
-  procedimiento_ids?: number[];
 };
 
 type CreatePatientFormData = {
@@ -167,8 +130,46 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("Inicio");
 
-  const [patientQuery, setPatientQuery] = useState("");
-  const [appointmentQuery, setAppointmentQuery] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [procedureLoadError, setProcedureLoadError] = useState("");
+  const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [lists, setLists] = useState<Record<"patients" | "appointments" | "pending", ListState>>({
+    patients: { loading: true, error: "" }, appointments: { loading: true, error: "" }, pending: { loading: true, error: "" },
+  });
+  const loadIds = useRef({ patients: 0, appointments: 0, pending: 0 });
+  async function refreshList<T>(key: keyof typeof lists, endpoint: string, update: (items: T[]) => void) {
+    const id = ++loadIds.current[key];
+    setLists(previous => ({ ...previous, [key]: { loading: true, error: "" } }));
+    try {
+      const data = await apiFetch(endpoint);
+      if (id !== loadIds.current[key]) return;
+      update(data);
+      setLists(previous => ({ ...previous, [key]: { loading: false, error: "" } }));
+    } catch (error) {
+      if (id !== loadIds.current[key]) return;
+      setLists(previous => ({ ...previous, [key]: { loading: false, error: apiErrorMessage(error, "No se pudo cargar la lista.") } }));
+    }
+  }
+  function requestAction(title: string, description: string, run: () => Promise<void>) {
+    setActionError("");
+    setConfirmAction({ title, description, run });
+  }
+  async function executeAction() {
+    if (!confirmAction || actionBusy) return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await confirmAction.run();
+      setConfirmAction(null);
+      setNotice("Operación realizada correctamente.");
+    } catch (error) {
+      setActionError(apiErrorMessage(error, "No se pudo completar la operación. Inténtalo de nuevo."));
+    } finally { setActionBusy(false); }
+  }
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
@@ -203,122 +204,35 @@ export default function AdminPage() {
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
   const [isEditingAppointment, setIsEditingAppointment] = useState(false);
 
-  const authorizations = useMemo(
-    () =>
-      pendingAppointments.filter((appointment) =>
-        [
-          appointment.id_paciente,
-          appointment.nombre_paciente,
-          appointment.fecha_programada,
-          appointment.hora_inicio,
-          appointment.estado,
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(appointmentQuery.toLowerCase())
-      ),
-    [pendingAppointments, appointmentQuery]
-  );
-
-  const cargarCitas = async () => {
-    try {
-      const data = await apiFetch("/citas/todas");
-      setAppointments(data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const buscarCitas = async (query: string) => {
-    try {
-      const data = await apiFetch(`/citas/filtrar?buscar=${encodeURIComponent(query)}`);
-      setAppointments(data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const eliminarCita = async (cita_id: number) => {
-    try {
-      await apiFetch(`/citas/${cita_id}`, {
-        method: "DELETE",
-      });
-      cargarCitas();
-      cargarPendientes();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const cargarPendientes = async () => {
-    try {
-      const data = await apiFetch("/citas/pendientes-aprobacion");
-      setPendingAppointments(data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const cargarPacientes = async () => {
-    try {
-      const data = await apiFetch("/pacientes");
-      setPatients(data);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const buscarPacientes = async (query: string) => {
-    try {
-      const data = await apiFetch(`/pacientes/filtrar?buscar=${encodeURIComponent(query)}`);
-      setPatients(data);
-    } catch (e) {
-      console.error(e);
-    }
+  const cargarCitas = () => refreshList<Appointment>("appointments", "/citas/todas", setAppointments);
+  const cargarPendientes = () => refreshList<Appointment>("pending", "/citas/pendientes-aprobacion", setPendingAppointments);
+  const cargarPacientes = () => refreshList<Patient>("patients", "/pacientes", setPatients);
+  const eliminarCita = async (id: number) => {
+    await apiFetch(`/citas/${id}`, { method: "DELETE" });
+    await Promise.all([cargarCitas(), cargarPendientes()]);
   };
 
   const cargarProcedimientos = async () => {
+    setProcedureLoadError("");
     try {
       const data = await apiFetch("/procedimientos/activos");
       setProcedures(data);
     } catch (e) {
-      console.error(e);
+      setProcedureLoadError(apiErrorMessage(e, "No se pudo cargar el catálogo de procedimientos."));
     }
   };
 
-  const eliminarPaciente = async (identificacion: string) => {
-    try {
-      await apiFetch(`/pacientes/${identificacion}`, {
-        method: "DELETE",
-      });
-      cargarPacientes();
-    } catch (e) {
-      console.error(e);
-    }
+  const eliminarPaciente = async (id: string) => {
+    await apiFetch(`/pacientes/${encodeURIComponent(id)}`, { method: "DELETE" });
+    await cargarPacientes();
   };
-
-  const autorizarCita = async (cita_id: number) => {
-    try {
-      await apiFetch(`/citas/${cita_id}/aprobar`, {
-        method: "PATCH",
-      });
-      cargarPendientes();
-      cargarCitas();
-    } catch (error) {
-      console.error(error);
-    }
+  const autorizarCita = async (id: number) => {
+    await apiFetch(`/citas/${id}/aprobar`, { method: "PATCH" });
+    await Promise.all([cargarCitas(), cargarPendientes()]);
   };
-
-  const rechazarCita = async (cita_id: number) => {
-    try {
-      await apiFetch(`/citas/${cita_id}/rechazar`, {
-        method: "PATCH",
-      });
-      cargarPendientes();
-      cargarCitas();
-    } catch (error) {
-      console.error(error);
-    }
+  const rechazarCita = async (id: number) => {
+    await apiFetch(`/citas/${id}/rechazar`, { method: "PATCH" });
+    await Promise.all([cargarCitas(), cargarPendientes()]);
   };
 
   useEffect(() => {
@@ -329,77 +243,6 @@ export default function AdminPage() {
       cargarProcedimientos();
     }
   }, [loggedIn]);
-
-  useEffect(() => {
-    if (activeTab !== "Citas") return;
-
-    const timeout = setTimeout(() => {
-      if (appointmentQuery.trim() === "") {
-        cargarCitas();
-      } else {
-        buscarCitas(appointmentQuery);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [appointmentQuery, activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "Autorizar Citas") return;
-
-    const timeout = setTimeout(() => {
-      if (appointmentQuery.trim() === "") {
-        cargarPendientes();
-      }
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [appointmentQuery, activeTab]);
-
-  useEffect(() => {
-    if (activeTab !== "Pacientes") return;
-
-    const timeout = setTimeout(() => {
-      if (patientQuery.trim() === "") {
-        cargarPacientes();
-      } else {
-        buscarPacientes(patientQuery);
-      }
-    }, 300);
-
-    return () => clearTimeout(timeout);
-  }, [patientQuery, activeTab]);
-
-  useEffect(() => {
-    const onEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsCreatePatientModalOpen(false);
-        setIsEditPatientModalOpen(false);
-        setIsCreateAppointmentModalOpen(false);
-        setIsEditAppointmentModalOpen(false);
-      }
-    };
-
-    if (
-      isCreatePatientModalOpen ||
-      isEditPatientModalOpen ||
-      isCreateAppointmentModalOpen ||
-      isEditAppointmentModalOpen
-    ) {
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", onEsc);
-    }
-
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", onEsc);
-    };
-  }, [
-    isCreatePatientModalOpen,
-    isEditPatientModalOpen,
-    isCreateAppointmentModalOpen,
-    isEditAppointmentModalOpen,
-  ]);
 
   const formatDateTimeLocal = (value?: string | null) => {
     if (!value) return "";
@@ -530,9 +373,10 @@ export default function AdminPage() {
     }
 
     if (type === "checkbox" && event.target instanceof HTMLInputElement) {
+      const checked = event.target.checked;
       setCreatePatientForm((prev) => ({
         ...prev,
-        [name]: event.target.checked,
+        [name]: checked,
       }));
       return;
     }
@@ -565,9 +409,10 @@ export default function AdminPage() {
     }
 
     if (type === "checkbox" && event.target instanceof HTMLInputElement) {
+      const checked = event.target.checked;
       setEditPatientForm((prev) => ({
         ...prev,
-        [name]: event.target.checked,
+        [name]: checked,
       }));
       return;
     }
@@ -646,10 +491,11 @@ export default function AdminPage() {
       });
 
       closeCreatePatientModal();
+      setNotice("Paciente guardado correctamente.");
       await cargarPacientes();
     } catch (error) {
       console.error(error);
-      setCreatePatientError("No se pudo crear el paciente.");
+      setCreatePatientError(apiErrorMessage(error, "No se pudo crear el paciente."));
     } finally {
       setIsCreatingPatient(false);
     }
@@ -686,10 +532,11 @@ export default function AdminPage() {
       });
 
       closeEditPatientModal();
+      setNotice("Paciente guardado correctamente.");
       await cargarPacientes();
     } catch (error) {
       console.error(error);
-      setEditPatientError("No se pudo actualizar el paciente.");
+      setEditPatientError(apiErrorMessage(error, "No se pudo actualizar el paciente."));
     } finally {
       setIsEditingPatient(false);
     }
@@ -723,11 +570,12 @@ export default function AdminPage() {
       });
 
       closeCreateAppointmentModal();
+      setNotice("Cita guardada correctamente.");
       await cargarCitas();
       await cargarPendientes();
     } catch (error) {
       console.error(error);
-      setCreateAppointmentError("No se pudo crear la cita.");
+      setCreateAppointmentError(apiErrorMessage(error, "No se pudo crear la cita."));
     } finally {
       setIsCreatingAppointment(false);
     }
@@ -763,11 +611,12 @@ export default function AdminPage() {
       });
 
       closeEditAppointmentModal();
+      setNotice("Cita guardada correctamente.");
       await cargarCitas();
       await cargarPendientes();
     } catch (error) {
       console.error(error);
-      setEditAppointmentError("No se pudo actualizar la cita.");
+      setEditAppointmentError(apiErrorMessage(error, "No se pudo actualizar la cita."));
     } finally {
       setIsEditingAppointment(false);
     }
@@ -775,30 +624,26 @@ export default function AdminPage() {
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
+    if (isLoggingIn) return;
+    setLoginError("");
+    setIsLoggingIn(true);
     try {
-      const response = await fetch("http://localhost:8000/administradores/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          usuario: username,
-          contrasena: password,
-        }),
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000"}/administradores/login`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: username.trim(), contrasena: password }),
       });
-
       if (!response.ok) {
-        throw new Error("Credenciales inválidas");
+        setLoginError(response.status === 401 ? "Usuario o contraseña incorrectos." : "No se pudo iniciar sesión. Inténtalo de nuevo.");
+        return;
       }
-
       const data = await response.json();
       localStorage.setItem("access_token", data.access_token);
+      setPassword("");
+      setNotice("");
       setLoggedIn(true);
-    } catch (error) {
-      console.error(error);
-      alert("Usuario o contraseña incorrectos");
-    }
+    } catch {
+      setLoginError("No se pudo conectar con el servidor. Comprueba la conexión.");
+    } finally { setIsLoggingIn(false); }
   };
 
   if (!loggedIn) {
@@ -809,405 +654,98 @@ export default function AdminPage() {
         onUsernameChange={setUsername}
         onPasswordChange={setPassword}
         onSubmit={handleLogin}
-        onForgotPassword={() => {}}
+        error={loginError}
+        isLoading={isLoggingIn}
       />
     );
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#050816] text-white">
-      <div className="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_top,rgba(124,58,237,0.22),transparent_30%),radial-gradient(circle_at_right,rgba(56,189,248,0.16),transparent_28%),linear-gradient(180deg,#050816_0%,#090b1a_100%)]" />
-      <div className="fixed inset-0 -z-10 opacity-25 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:60px_60px]" />
-
-      <div className="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 lg:px-8">
-        <header className="mb-8 rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-3 rounded-3xl bg-violet-600/10 px-4 py-2 text-sm text-violet-200 ring-1 ring-violet-500/20">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-500/15 text-lg">
-                  R
-                </span>
-                <span className="font-semibold">Clínica Renacer</span>
-              </div>
-              <p className="text-2xl font-black tracking-tight">Panel de administración</p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap gap-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`rounded-full px-4 py-3 text-sm font-semibold transition ${
-                      activeTab === tab
-                        ? "bg-violet-500 text-slate-950"
-                        : "bg-white/5 text-slate-300 hover:bg-white/10"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-3 rounded-3xl border border-white/10 bg-slate-950/10 px-4 py-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-lg font-semibold text-white">
-                  A
-                </span>
-                <div>
-                  <p className="text-sm text-slate-300">Administrador</p>
-                  <p className="text-sm font-semibold text-white">Usuario</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl">
-            <div className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Navegación</p>
-                <div className="space-y-2">
-                  {sidebarItems.map((item) => (
-                    <button
-                      key={item}
-                      onClick={() => setActiveTab(item)}
-                      className={`flex w-full items-center justify-between rounded-3xl border px-4 py-4 text-left text-sm font-semibold transition ${
-                        activeTab === item
-                          ? "border-cyan-400/30 bg-cyan-500/10 text-white"
-                          : "border-white/10 bg-white/5 text-slate-300 hover:border-cyan-400/20 hover:bg-white/10"
-                      }`}
-                    >
-                      <span>{item}</span>
-                      {activeTab === item ? <span>·</span> : null}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
-                <p className="text-sm uppercase tracking-[0.25em] text-cyan-300">Estado</p>
-                <p className="mt-3 text-lg font-semibold text-white">Panel activo</p>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
-                  Usa esta página para gestionar pacientes, citas y autorizaciones desde la administración.
-                </p>
-              </div>
-
-              <button
-                className="w-full rounded-3xl bg-red-500 px-4 py-4 text-sm font-semibold text-white transition hover:bg-red-400"
-                type="button"
-                onClick={() => {
-                  setLoggedIn(false);
-                  setPassword("");
-                  setActiveTab("Inicio");
-                }}
-              >
-                Cerrar sesión
-              </button>
-            </div>
-          </aside>
-
+    <div className="a-admin">
+      <header className="a-header">
+        <a href="#" className="a-brand">renacer<span>.</span><small>ADMINISTRACIÓN</small></a>
+        <div className="a-header-right"><a href="#">Ver sitio <ArrowUpRight size={14}/></a><span className="a-user"><span>{username.slice(0,1).toUpperCase()}</span>{username}</span></div>
+      </header>
+      <div className="a-layout">
+        <aside className="a-sidebar">
+          <p>ESPACIO DE TRABAJO</p>
+          <nav aria-label="Administración">{sidebarItems.map(item => { const Icon = navigationIcons[item]; return <button key={item} onClick={()=>setActiveTab(item)} aria-current={activeTab === item ? "page" : undefined}><Icon size={18}/>{item === "Autorizar Citas" ? "Solicitudes" : item}</button>; })}</nav>
+          <div className="a-session"><Activity size={16}/><span>Sesión administrativa</span></div>
+          <button className="a-logout" onClick={()=>{localStorage.removeItem("access_token"); setLoggedIn(false);setPassword("");setActiveTab("Inicio");}}><LogOut size={17}/> Cerrar sesión</button>
+        </aside>
+        <div className="a-content">
+          {procedureLoadError && <Feedback title="Catálogo no disponible"><p>{procedureLoadError}</p><div className="feedback-actions"><button onClick={cargarProcedimientos}>Reintentar</button></div></Feedback>}
+          {notice && <Feedback tone="success" title="Operación completada"><p>{notice}</p><div className="feedback-actions"><button aria-label="Cerrar aviso" title="Cerrar aviso" onClick={() => setNotice("")}><X size={16}/> Cerrar aviso</button></div></Feedback>}
           <main className="space-y-6">
             {activeTab === "Inicio" && (
-              <section className="rounded-[2rem] border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Bienvenido</p>
-                    <h1 className="mt-3 text-4xl font-black text-white">Hola, Administrador</h1>
-                    <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-300">
-                      Bienvenido al panel de administración. Desde aquí puedes gestionar pacientes, citas y autorizaciones.
-                    </p>
-                  </div>
-                  <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-8 text-center">
-                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-violet-500/10 text-3xl text-violet-300">
-                      👋
-                    </div>
-                    <p className="mt-5 text-sm uppercase tracking-[0.28em] text-cyan-300">Administración</p>
-                    <p className="mt-2 text-xl font-bold text-white">Dashboard</p>
-                  </div>
-                </div>
-              </section>
+              <AdminOverview onPending={() => { setActiveTab("Autorizar Citas"); }} onAppointments={() => { setActiveTab("Citas"); }} onCreate={openCreateAppointmentModal} />
             )}
 
-            {activeTab === "Pacientes" && (
-              <section className="space-y-6">
-                <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Pacientes</p>
-                    <h2 className="mt-2 text-3xl font-black text-white">Lista de pacientes</h2>
-                  </div>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <input
-                      type="text"
-                      placeholder="Buscar paciente..."
-                      value={patientQuery}
-                      onChange={(event) => setPatientQuery(event.target.value)}
-                      className="w-full min-w-[220px] rounded-3xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                    />
-                    <button onClick={openCreatePatientModal} className="whitespace-nowrap rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400">
-                      Agregar paciente
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl">
-                  <table className="min-w-full divide-y divide-white/10">
-                    <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
-                      <tr>
-                        <th className="px-6 py-4">ID</th>
-                        <th className="px-6 py-4">Nombre</th>
-                        <th className="px-6 py-4">Teléfono</th>
-                        <th className="px-6 py-4">Correo</th>
-                        <th className="px-6 py-4">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10 bg-slate-950/70 text-sm text-slate-200">
-                      {patients.map((patient) => (
-                        <tr key={patient.identificacion}>
-                          <td className="px-6 py-4 font-semibold text-cyan-300">{patient.identificacion}</td>
-                          <td className="px-6 py-4">{patient.nombre_completo}</td>
-                          <td className="px-6 py-4">{patient.telefono}</td>
-                          <td className="px-6 py-4">{patient.email}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => openEditPatientModal(patient)}
-                                className="rounded-2xl bg-cyan-400/10 px-3 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/20"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                onClick={() => eliminarPaciente(patient.identificacion)}
-                                className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {patients.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
-                            No hay pacientes para mostrar.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
-
-            {activeTab === "Citas" && (
-              <section className="space-y-6">
-                <div className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur-xl md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Citas</p>
-                    <h2 className="mt-2 text-3xl font-black text-white">Agenda de citas</h2>
-                  </div>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <input
-                      type="text"
-                      placeholder="Buscar cita..."
-                      value={appointmentQuery}
-                      onChange={(event) => setAppointmentQuery(event.target.value)}
-                      className="w-full min-w-[220px] rounded-3xl border border-white/10 bg-black/40 px-4 py-3 text-white placeholder:text-slate-500 focus:border-cyan-400 focus:outline-none"
-                    />
-                    <button
-                      className="whitespace-nowrap rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400"
-                      onClick={openCreateAppointmentModal}
-                    >
-                      Agregar cita
-                    </button>
-                  </div>
-                </div>
-
-                <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl">
-                  <table className="min-w-full divide-y divide-white/10">
-                    <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
-                      <tr>
-                        <th className="px-6 py-4">ID</th>
-                        <th className="px-6 py-4">Paciente</th>
-                        <th className="px-6 py-4">Fecha</th>
-                        <th className="px-6 py-4">Hora</th>
-                        <th className="px-6 py-4">Monto final</th>
-                        <th className="px-6 py-4">Estado</th>
-                        <th className="px-6 py-4">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10 bg-slate-950/70 text-sm text-slate-200">
-                      {appointments.map((appointment) => (
-                        <tr key={appointment.id}>
-                          <td className="px-6 py-4 font-semibold text-cyan-300">{appointment.id}</td>
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-white">{appointment.nombre_paciente || "Sin nombre"}</p>
-                              <p className="text-xs text-slate-400">{appointment.id_paciente}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">{appointment.fecha_programada}</td>
-                          <td className="px-6 py-4">
-                            {appointment.hora_inicio} - {appointment.hora_fin}
-                          </td>
-                          <td className="px-6 py-4">{formatCurrency(appointment.monto_final)}</td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
-                                statusClasses[appointment.estado as keyof typeof statusClasses] ||
-                                "bg-gray-500/10 text-gray-300 border-gray-500/20"
-                              }`}
-                            >
-                              {appointment.estado}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-2">
-                              <button
-                                className="rounded-2xl bg-violet-500/10 px-3 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-500/20"
-                                onClick={() => openEditAppointmentModal(appointment)}
-                              >
-                                Editar
-                              </button>
-                              <button
-                                className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
-                                onClick={() => eliminarCita(appointment.id)}
-                              >
-                                Eliminar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {appointments.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
-                            No hay citas para mostrar.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
-
-            {activeTab === "Autorizar Citas" && (
-              <section className="space-y-6">
-                <div className="rounded-[2rem] border border-white/10 bg-cyan-500/5 p-6 shadow-2xl backdrop-blur-xl">
-                  <p className="text-sm uppercase tracking-[0.28em] text-cyan-300">Autorizar citas</p>
-                  <h2 className="mt-2 text-3xl font-black text-white">Revisa las citas pendientes</h2>
-                  <p className="mt-3 text-slate-300">
-                    Revisa las citas pendientes y autorízalas para que sean confirmadas.
-                  </p>
-                </div>
-
-                <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl">
-                  <table className="min-w-full divide-y divide-white/10">
-                    <thead className="bg-slate-950/70 text-left text-sm uppercase tracking-[0.2em] text-slate-400">
-                      <tr>
-                        <th className="px-6 py-4">ID</th>
-                        <th className="px-6 py-4">Paciente</th>
-                        <th className="px-6 py-4">Fecha</th>
-                        <th className="px-6 py-4">Hora</th>
-                        <th className="px-6 py-4">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/10 bg-slate-950/70 text-sm text-slate-200">
-                      {authorizations.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-6 py-4 font-semibold text-cyan-300">{item.id}</td>
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-white">{item.nombre_paciente || "Sin nombre"}</p>
-                              <p className="text-xs text-slate-400">{item.id_paciente}</p>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">{item.fecha_programada}</td>
-                          <td className="px-6 py-4">
-                            {item.hora_inicio} - {item.hora_fin}
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => autorizarCita(item.id)}
-                                className="rounded-2xl bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/20"
-                              >
-                                Autorizar
-                              </button>
-                              <button
-                                onClick={() => rechazarCita(item.id)}
-                                className="rounded-2xl bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/20"
-                              >
-                                Rechazar
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                      {authorizations.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
-                            No hay citas pendientes.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            )}
+            {activeTab === "Pacientes" && <PatientList patients={patients} state={lists.patients} onReload={cargarPacientes} onCreate={openCreatePatientModal} onEdit={openEditPatientModal}
+              onDelete={patient => requestAction("Eliminar paciente", `¿Eliminar a ${patient.nombre_completo} (${patient.identificacion})?`, () => eliminarPaciente(patient.identificacion))} />}
+            {(activeTab === "Citas" || activeTab === "Autorizar Citas") && <AppointmentList key={activeTab}
+              pending={activeTab === "Autorizar Citas"} appointments={activeTab === "Citas" ? appointments : pendingAppointments}
+              state={activeTab === "Citas" ? lists.appointments : lists.pending} onReload={activeTab === "Citas" ? cargarCitas : cargarPendientes}
+              onCreate={openCreateAppointmentModal} onEdit={openEditAppointmentModal}
+              onDelete={cita => requestAction("Eliminar cita", `¿Eliminar la cita #${cita.id} de ${cita.nombre_paciente || cita.id_paciente}?`, () => eliminarCita(cita.id))}
+              onApprove={cita => requestAction("Aprobar solicitud", `¿Aprobar la cita #${cita.id} del ${cita.fecha_programada} a las ${cita.hora_inicio.slice(0, 5)}?`, () => autorizarCita(cita.id))}
+              onReject={cita => requestAction("Rechazar solicitud", `¿Rechazar la cita #${cita.id} de ${cita.nombre_paciente || cita.id_paciente}?`, () => rechazarCita(cita.id))}
+            />}
           </main>
         </div>
       </div>
 
+      {confirmAction && <AdminModal title={confirmAction.title} busy={actionBusy} onClose={() => setConfirmAction(null)}>
+        <div className="a-modal-heading"><h2 className="a-modal-title">{confirmAction.title}</h2></div>
+        <div className="a-confirm-body"><Feedback tone="warning" title="Confirma antes de continuar">{confirmAction.description}</Feedback>
+          {actionError && <Feedback>{actionError}</Feedback>}
+          <div className="a-form-actions"><button className="a-secondary" disabled={actionBusy} onClick={() => setConfirmAction(null)}>Cancelar</button><button className="a-primary" disabled={actionBusy} onClick={executeAction}>{actionBusy ? "Procesando..." : "Confirmar"}</button></div>
+        </div>
+      </AdminModal>}
+      <AdminAssistantWidget />
+
       {isCreatePatientModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm"
-          onClick={closeCreatePatientModal}
-        >
-          <div
-            className="relative w-full max-w-2xl rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-white/10 bg-white/5 px-6 py-5">
+        <AdminModal title="Agregar paciente" busy={isCreatingPatient} onClose={closeCreatePatientModal}>
+            <div className="a-modal-heading">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/80">Pacientes</p>
-                  <h2 className="mt-2 text-2xl font-black text-white">Agregar paciente</h2>
-                  <p className="mt-2 text-sm text-slate-300">
+                  <p className="a-kicker">Pacientes</p>
+                  <h2 className="a-modal-title">Agregar paciente</h2>
+                  <p className="a-modal-description">
                     Registra solo los datos necesarios del paciente.
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={closeCreatePatientModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20"
+                  onClick={closeCreatePatientModal} disabled={isCreatingPatient}
+                  aria-label="Cerrar formulario" title="Cerrar formulario"
+                  className="a-icon a-modal-close"
                 >
-                  ×
+                  <X size={19}/>
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleCreatePatient} className="px-6 py-6">
-              <div className="grid gap-4 md:grid-cols-2">
+            <form onSubmit={handleCreatePatient} onInvalidCapture={() => setCreatePatientError("Revisa los campos obligatorios y el formato de los datos.")} className="a-record-form">
+              <fieldset disabled={isCreatingPatient}>
+              <div className="a-form-grid">
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Identificación</label>
-                  <input
-                    name="identificacion"
+                  <label htmlFor="create-patient-1" className="a-field-label">Identificación</label>
+                  <input id="create-patient-1"
+                    name="identificacion" required
                     value={createPatientForm.identificacion}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Tipo de identificación</label>
-                  <select
+                  <label htmlFor="create-patient-2" className="a-field-label">Tipo de identificación</label>
+                  <select id="create-patient-2"
                     name="tipo_identificacion"
                     value={createPatientForm.tipo_identificacion}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="cedula_chilena">Cédula chilena</option>
                     <option value="cedula_extranjero">Cédula extranjero</option>
@@ -1218,53 +756,53 @@ export default function AdminPage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Nombre completo</label>
-                  <input
-                    name="nombre_completo"
+                  <label htmlFor="create-patient-3" className="a-field-label">Nombre completo</label>
+                  <input id="create-patient-3"
+                    name="nombre_completo" required
                     value={createPatientForm.nombre_completo}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Teléfono</label>
-                  <input
-                    name="telefono"
+                  <label htmlFor="create-patient-4" className="a-field-label">Teléfono</label>
+                  <input id="create-patient-4"
+                    name="telefono" required
                     value={createPatientForm.telefono}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Email</label>
-                  <input
-                    name="email"
+                  <label htmlFor="create-patient-5" className="a-field-label">Email</label>
+                  <input id="create-patient-5"
+                    name="email" required
                     type="email"
                     value={createPatientForm.email}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Dirección</label>
-                  <input
-                    name="direccion"
+                  <label htmlFor="create-patient-6" className="a-field-label">Dirección</label>
+                  <input id="create-patient-6"
+                    name="direccion" required
                     value={createPatientForm.direccion}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Sexo</label>
-                  <select
+                  <label htmlFor="create-patient-7" className="a-field-label">Sexo</label>
+                  <select id="create-patient-7"
                     name="sexo"
                     value={createPatientForm.sexo}
                     onChange={handleCreatePatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="masculino">Masculino</option>
                     <option value="femenino">Femenino</option>
@@ -1272,7 +810,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex items-end">
-                  <label className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+                  <label className="a-checkbox-field">
                     <input
                       type="checkbox"
                       name="activo"
@@ -1284,75 +822,70 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {createPatientError && <p className="mt-4 text-sm text-rose-300">{createPatientError}</p>}
+              {createPatientError && <Feedback>{createPatientError}</Feedback>}
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="a-form-actions">
                 <button
                   type="submit"
                   disabled={isCreatingPatient}
-                  className="w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="a-primary"
                 >
                   {isCreatingPatient ? "Guardando..." : "Guardar paciente"}
                 </button>
                 <button
                   type="button"
-                  onClick={closeCreatePatientModal}
-                  className="w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  onClick={closeCreatePatientModal} disabled={isCreatingPatient}
+                  className="a-secondary"
                 >
                   Cancelar
                 </button>
               </div>
+              </fieldset>
             </form>
-          </div>
-        </div>
+        </AdminModal>
       )}
 
       {isEditPatientModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm"
-          onClick={closeEditPatientModal}
-        >
-          <div
-            className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-white/10 bg-white/5 px-6 py-5">
+        <AdminModal title="Editar paciente" busy={isEditingPatient} onClose={closeEditPatientModal}>
+            <div className="a-modal-heading">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/80">Pacientes</p>
-                  <h2 className="mt-2 text-2xl font-black text-white">Editar paciente</h2>
-                  <p className="mt-2 text-sm text-slate-300">
+                  <p className="a-kicker">Pacientes</p>
+                  <h2 className="a-modal-title">Editar paciente</h2>
+                  <p className="a-modal-description">
                     Actualiza la información completa del paciente seleccionado.
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={closeEditPatientModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20"
+                  onClick={closeEditPatientModal} disabled={isEditingPatient}
+                  aria-label="Cerrar formulario" title="Cerrar formulario"
+                  className="a-icon a-modal-close"
                 >
-                  ×
+                  <X size={19}/>
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleEditPatient} className="max-h-[85vh] overflow-y-auto px-6 py-6">
-              <div className="grid gap-4 md:grid-cols-2">
+            <form onSubmit={handleEditPatient} onInvalidCapture={() => setEditPatientError("Revisa los campos obligatorios y el formato de los datos.")} className="a-record-form">
+              <fieldset disabled={isEditingPatient}>
+              <div className="a-form-grid">
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Identificación</label>
-                  <input
+                  <label htmlFor="edit-patient-1" className="a-field-label">Identificación</label>
+                  <input id="edit-patient-1"
                     value={selectedPatientId ?? ""}
                     disabled
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-400 outline-none"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Tipo de identificación</label>
-                  <select
+                  <label htmlFor="edit-patient-2" className="a-field-label">Tipo de identificación</label>
+                  <select id="edit-patient-2"
                     name="tipo_identificacion"
                     value={editPatientForm.tipo_identificacion}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="cedula_chilena">Cédula chilena</option>
                     <option value="cedula_extranjero">Cédula extranjero</option>
@@ -1363,12 +896,12 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Sexo</label>
-                  <select
+                  <label htmlFor="edit-patient-3" className="a-field-label">Sexo</label>
+                  <select id="edit-patient-3"
                     name="sexo"
                     value={editPatientForm.sexo}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="masculino">Masculino</option>
                     <option value="femenino">Femenino</option>
@@ -1376,103 +909,103 @@ export default function AdminPage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Nombre completo</label>
-                  <input
-                    name="nombre_completo"
+                  <label htmlFor="edit-patient-4" className="a-field-label">Nombre completo</label>
+                  <input id="edit-patient-4"
+                    name="nombre_completo" required
                     value={editPatientForm.nombre_completo}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Teléfono</label>
-                  <input
-                    name="telefono"
+                  <label htmlFor="edit-patient-5" className="a-field-label">Teléfono</label>
+                  <input id="edit-patient-5"
+                    name="telefono" required
                     value={editPatientForm.telefono}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Email</label>
-                  <input
-                    name="email"
+                  <label htmlFor="edit-patient-6" className="a-field-label">Email</label>
+                  <input id="edit-patient-6"
+                    name="email" required
                     type="email"
                     value={editPatientForm.email}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Dirección</label>
-                  <input
-                    name="direccion"
+                  <label htmlFor="edit-patient-7" className="a-field-label">Dirección</label>
+                  <input id="edit-patient-7"
+                    name="direccion" required
                     value={editPatientForm.direccion}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Nacionalidad</label>
-                  <input
+                  <label htmlFor="edit-patient-8" className="a-field-label">Nacionalidad</label>
+                  <input id="edit-patient-8"
                     name="nacionalidad"
                     value={editPatientForm.nacionalidad}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Género</label>
-                  <input
+                  <label htmlFor="edit-patient-9" className="a-field-label">Género</label>
+                  <input id="edit-patient-9"
                     name="genero"
                     value={editPatientForm.genero}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Fecha de nacimiento</label>
-                  <input
+                  <label htmlFor="edit-patient-10" className="a-field-label">Fecha de nacimiento</label>
+                  <input id="edit-patient-10"
                     name="fecha_nacimiento"
                     type="datetime-local"
                     value={editPatientForm.fecha_nacimiento}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Altura</label>
-                  <input
+                  <label htmlFor="edit-patient-11" className="a-field-label">Altura</label>
+                  <input id="edit-patient-11"
                     name="altura"
                     type="number"
                     step="0.01"
                     value={editPatientForm.altura}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Peso</label>
-                  <input
+                  <label htmlFor="edit-patient-12" className="a-field-label">Peso</label>
+                  <input id="edit-patient-12"
                     name="peso"
                     type="number"
                     step="0.01"
                     value={editPatientForm.peso}
                     onChange={handleEditPatientInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="flex items-end">
-                  <label className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200">
+                  <label className="a-checkbox-field">
                     <input
                       type="checkbox"
                       name="activo"
@@ -1484,63 +1017,58 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {editPatientError && <p className="mt-4 text-sm text-rose-300">{editPatientError}</p>}
+              {editPatientError && <Feedback>{editPatientError}</Feedback>}
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="a-form-actions">
                 <button
                   type="submit"
                   disabled={isEditingPatient}
-                  className="w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="a-primary"
                 >
                   {isEditingPatient ? "Guardando..." : "Actualizar paciente"}
                 </button>
                 <button
                   type="button"
-                  onClick={closeEditPatientModal}
-                  className="w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  onClick={closeEditPatientModal} disabled={isEditingPatient}
+                  className="a-secondary"
                 >
                   Cancelar
                 </button>
               </div>
+              </fieldset>
             </form>
-          </div>
-        </div>
+        </AdminModal>
       )}
 
       {isCreateAppointmentModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm"
-          onClick={closeCreateAppointmentModal}
-        >
-          <div
-            className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-white/10 bg-white/5 px-6 py-5">
+        <AdminModal title="Agregar cita" busy={isCreatingAppointment} onClose={closeCreateAppointmentModal}>
+            <div className="a-modal-heading">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/80">Citas</p>
-                  <h2 className="mt-2 text-2xl font-black text-white">Agregar cita</h2>
+                  <p className="a-kicker">Citas</p>
+                  <h2 className="a-modal-title">Agregar cita</h2>
                 </div>
                 <button
                   type="button"
-                  onClick={closeCreateAppointmentModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20"
+                  onClick={closeCreateAppointmentModal} disabled={isCreatingAppointment}
+                  aria-label="Cerrar formulario" title="Cerrar formulario"
+                  className="a-icon a-modal-close"
                 >
-                  ×
+                  <X size={19}/>
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleCreateAppointment} className="max-h-[85vh] overflow-y-auto px-6 py-6">
-              <div className="grid gap-4 md:grid-cols-2">
+            <form onSubmit={handleCreateAppointment} onInvalidCapture={() => setCreateAppointmentError("Revisa los campos obligatorios y el formato de los datos.")} className="a-record-form">
+              <fieldset disabled={isCreatingAppointment}>
+              <div className="a-form-grid">
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Paciente</label>
-                  <select
-                    name="id_paciente"
+                  <label htmlFor="create-appointment-1" className="a-field-label">Paciente</label>
+                  <select id="create-appointment-1"
+                    name="id_paciente" required
                     value={createAppointmentForm.id_paciente}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="">Selecciona un paciente</option>
                     {patients.map((patient) => (
@@ -1552,23 +1080,23 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Fecha</label>
-                  <input
+                  <label htmlFor="create-appointment-2" className="a-field-label">Fecha</label>
+                  <input id="create-appointment-2"
                     type="date"
-                    name="fecha_programada"
+                    name="fecha_programada" required
                     value={createAppointmentForm.fecha_programada}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Estado</label>
-                  <select
+                  <label htmlFor="create-appointment-3" className="a-field-label">Estado</label>
+                  <select id="create-appointment-3"
                     name="estado"
                     value={createAppointmentForm.estado}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="pendiente_aprobacion">Pendiente aprobación</option>
                     <option value="aprobada">Aprobada</option>
@@ -1577,68 +1105,68 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Hora inicio</label>
-                  <input
+                  <label htmlFor="create-appointment-4" className="a-field-label">Hora inicio</label>
+                  <input id="create-appointment-4"
                     type="time"
-                    name="hora_inicio"
+                    name="hora_inicio" required
                     value={createAppointmentForm.hora_inicio}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Hora fin</label>
-                  <input
+                  <label htmlFor="create-appointment-5" className="a-field-label">Hora fin</label>
+                  <input id="create-appointment-5"
                     type="time"
-                    name="hora_fin"
+                    name="hora_fin" required
                     value={createAppointmentForm.hora_fin}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Valor consulta</label>
-                  <input
+                  <label htmlFor="create-appointment-6" className="a-field-label">Valor consulta</label>
+                  <input id="create-appointment-6"
                     type="number"
                     step="0.01"
                     name="valor_consulta"
                     value={createAppointmentForm.valor_consulta}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Código promocional</label>
-                  <input
+                  <label htmlFor="create-appointment-7" className="a-field-label">Código promocional</label>
+                  <input id="create-appointment-7"
                     type="number"
                     name="id_codigo_promocional"
                     value={createAppointmentForm.id_codigo_promocional}
                     onChange={handleCreateAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Nota</label>
-                  <textarea
+                  <label htmlFor="create-appointment-8" className="a-field-label">Nota</label>
+                  <textarea id="create-appointment-8"
                     name="nota"
                     value={createAppointmentForm.nota}
                     onChange={handleCreateAppointmentInputChange}
                     rows={4}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-3 block text-sm font-medium text-slate-200">Procedimientos</label>
+                  <label className="a-field-label">Procedimientos</label>
                   <div className="grid gap-3 md:grid-cols-2">
                     {procedures.map((procedure) => (
                       <label
                         key={procedure.id}
-                        className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
+                        className="a-procedure-choice"
                       >
                         <input
                           type="checkbox"
@@ -1647,9 +1175,9 @@ export default function AdminPage() {
                           className="mt-1"
                         />
                         <div>
-                          <p className="font-semibold text-white">{procedure.nombre}</p>
-                          <p className="text-slate-400">{procedure.descripcion}</p>
-                          <p className="mt-1 text-cyan-300">{formatCurrency(procedure.precio)}</p>
+                          <p className="a-choice-title">{procedure.nombre}</p>
+                          <p className="a-choice-description">{procedure.descripcion}</p>
+                          <p className="a-choice-price">{formatCurrency(procedure.precio)}</p>
                         </div>
                       </label>
                     ))}
@@ -1658,64 +1186,59 @@ export default function AdminPage() {
               </div>
 
               {createAppointmentError && (
-                <p className="mt-4 text-sm text-rose-300">{createAppointmentError}</p>
+                <Feedback>{createAppointmentError}</Feedback>
               )}
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="a-form-actions">
                 <button
                   type="submit"
                   disabled={isCreatingAppointment}
-                  className="w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="a-primary"
                 >
                   {isCreatingAppointment ? "Guardando..." : "Guardar cita"}
                 </button>
                 <button
                   type="button"
-                  onClick={closeCreateAppointmentModal}
-                  className="w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  onClick={closeCreateAppointmentModal} disabled={isCreatingAppointment}
+                  className="a-secondary"
                 >
                   Cancelar
                 </button>
               </div>
+              </fieldset>
             </form>
-          </div>
-        </div>
+        </AdminModal>
       )}
 
       {isEditAppointmentModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6 backdrop-blur-sm"
-          onClick={closeEditAppointmentModal}
-        >
-          <div
-            className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/10 bg-[#0b1220] shadow-2xl shadow-black/40"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="border-b border-white/10 bg-white/5 px-6 py-5">
+        <AdminModal title="Editar cita" busy={isEditingAppointment} onClose={closeEditAppointmentModal}>
+            <div className="a-modal-heading">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-sm uppercase tracking-[0.3em] text-cyan-200/80">Citas</p>
-                  <h2 className="mt-2 text-2xl font-black text-white">Editar cita</h2>
+                  <p className="a-kicker">Citas</p>
+                  <h2 className="a-modal-title">Editar cita</h2>
                 </div>
                 <button
                   type="button"
-                  onClick={closeEditAppointmentModal}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/10 text-xl text-white transition hover:bg-white/20"
+                  onClick={closeEditAppointmentModal} disabled={isEditingAppointment}
+                  aria-label="Cerrar formulario" title="Cerrar formulario"
+                  className="a-icon a-modal-close"
                 >
-                  ×
+                  <X size={19}/>
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleEditAppointment} className="max-h-[85vh] overflow-y-auto px-6 py-6">
-              <div className="grid gap-4 md:grid-cols-2">
+            <form onSubmit={handleEditAppointment} onInvalidCapture={() => setEditAppointmentError("Revisa los campos obligatorios y el formato de los datos.")} className="a-record-form">
+              <fieldset disabled={isEditingAppointment}>
+              <div className="a-form-grid">
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Paciente</label>
-                  <select
-                    name="id_paciente"
+                  <label htmlFor="edit-appointment-1" className="a-field-label">Paciente</label>
+                  <select id="edit-appointment-1"
+                    name="id_paciente" required
                     value={editAppointmentForm.id_paciente}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="">Selecciona un paciente</option>
                     {patients.map((patient) => (
@@ -1727,23 +1250,23 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Fecha</label>
-                  <input
+                  <label htmlFor="edit-appointment-2" className="a-field-label">Fecha</label>
+                  <input id="edit-appointment-2"
                     type="date"
-                    name="fecha_programada"
+                    name="fecha_programada" required
                     value={editAppointmentForm.fecha_programada}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Estado</label>
-                  <select
+                  <label htmlFor="edit-appointment-3" className="a-field-label">Estado</label>
+                  <select id="edit-appointment-3"
                     name="estado"
                     value={editAppointmentForm.estado}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   >
                     <option value="pendiente_aprobacion">Pendiente aprobación</option>
                     <option value="aprobada">Aprobada</option>
@@ -1752,68 +1275,68 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Hora inicio</label>
-                  <input
+                  <label htmlFor="edit-appointment-4" className="a-field-label">Hora inicio</label>
+                  <input id="edit-appointment-4"
                     type="time"
-                    name="hora_inicio"
+                    name="hora_inicio" required
                     value={editAppointmentForm.hora_inicio}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Hora fin</label>
-                  <input
+                  <label htmlFor="edit-appointment-5" className="a-field-label">Hora fin</label>
+                  <input id="edit-appointment-5"
                     type="time"
-                    name="hora_fin"
+                    name="hora_fin" required
                     value={editAppointmentForm.hora_fin}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Valor consulta</label>
-                  <input
+                  <label htmlFor="edit-appointment-6" className="a-field-label">Valor consulta</label>
+                  <input id="edit-appointment-6"
                     type="number"
                     step="0.01"
                     name="valor_consulta"
                     value={editAppointmentForm.valor_consulta}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Código promocional</label>
-                  <input
+                  <label htmlFor="edit-appointment-7" className="a-field-label">Código promocional</label>
+                  <input id="edit-appointment-7"
                     type="number"
                     name="id_codigo_promocional"
                     value={editAppointmentForm.id_codigo_promocional}
                     onChange={handleEditAppointmentInputChange}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm font-medium text-slate-200">Nota</label>
-                  <textarea
+                  <label htmlFor="edit-appointment-8" className="a-field-label">Nota</label>
+                  <textarea id="edit-appointment-8"
                     name="nota"
                     value={editAppointmentForm.nota}
                     onChange={handleEditAppointmentInputChange}
                     rows={4}
-                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-cyan-400"
+                    className="a-field"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="mb-3 block text-sm font-medium text-slate-200">Procedimientos</label>
+                  <label className="a-field-label">Procedimientos</label>
                   <div className="grid gap-3 md:grid-cols-2">
                     {procedures.map((procedure) => (
                       <label
                         key={procedure.id}
-                        className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-slate-200"
+                        className="a-procedure-choice"
                       >
                         <input
                           type="checkbox"
@@ -1822,9 +1345,9 @@ export default function AdminPage() {
                           className="mt-1"
                         />
                         <div>
-                          <p className="font-semibold text-white">{procedure.nombre}</p>
-                          <p className="text-slate-400">{procedure.descripcion}</p>
-                          <p className="mt-1 text-cyan-300">{formatCurrency(procedure.precio)}</p>
+                          <p className="a-choice-title">{procedure.nombre}</p>
+                          <p className="a-choice-description">{procedure.descripcion}</p>
+                          <p className="a-choice-price">{formatCurrency(procedure.precio)}</p>
                         </div>
                       </label>
                     ))}
@@ -1833,28 +1356,28 @@ export default function AdminPage() {
               </div>
 
               {editAppointmentError && (
-                <p className="mt-4 text-sm text-rose-300">{editAppointmentError}</p>
+                <Feedback>{editAppointmentError}</Feedback>
               )}
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <div className="a-form-actions">
                 <button
                   type="submit"
                   disabled={isEditingAppointment}
-                  className="w-full rounded-2xl bg-violet-500 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-violet-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="a-primary"
                 >
                   {isEditingAppointment ? "Guardando..." : "Actualizar cita"}
                 </button>
                 <button
                   type="button"
-                  onClick={closeEditAppointmentModal}
-                  className="w-full rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                  onClick={closeEditAppointmentModal} disabled={isEditingAppointment}
+                  className="a-secondary"
                 >
                   Cancelar
                 </button>
               </div>
+              </fieldset>
             </form>
-          </div>
-        </div>
+        </AdminModal>
       )}
     </div>
   );

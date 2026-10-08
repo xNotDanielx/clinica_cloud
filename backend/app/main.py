@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.lifespan import lifespan
+from app.core.config import settings
 from app.common.exceptions import ServiceError
 from app.db.database import Base, engine, ensure_schema_compatibility
 import app.models
@@ -13,6 +14,7 @@ from app.routes import (
     pacientes_router,
     procedimientos_router,
     enums_router,
+    asistente_router,
 )
 
 
@@ -51,18 +53,12 @@ app.include_router(citas_router)
 app.include_router(codigos_promocionales_router)
 app.include_router(administradores_router)
 app.include_router(enums_router)
+app.include_router(asistente_router)
 
 # Enable CORS for local frontend during development
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=list(settings.cors_origins),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

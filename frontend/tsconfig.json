@@ -16,5 +16,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["clinica_cloud/frontend/src"]
+  "include": ["src"]
 }

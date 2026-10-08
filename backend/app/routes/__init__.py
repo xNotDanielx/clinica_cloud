@@ -4,6 +4,7 @@ from app.routes.codigos_promocionales import router as codigos_promocionales_rou
 from app.routes.pacientes import router as pacientes_router
 from app.routes.procedimientos import router as procedimientos_router
 from app.routes.enums import router as enums_router
+from app.routes.asistente import router as asistente_router
 
 __all__ = [
     "pacientes_router",
@@ -12,4 +13,5 @@ __all__ = [
     "administradores_router",
     "codigos_promocionales_router",
     "enums_router",
+    "asistente_router",
 ]

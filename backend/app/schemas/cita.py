@@ -2,7 +2,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.common.enums import EstadoCita
 
@@ -20,6 +20,26 @@ class CitaPublicaRequest(BaseModel):
     procedimiento_ids: List[int]
     nota: Optional[str] = None
     valor_consulta: Decimal
+
+
+class CitaPublicaOut(BaseModel):
+    id: int
+    estado: EstadoCita
+    fecha_programada: date
+    hora_inicio: time
+    codigo_seguimiento: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SeguimientoRequest(BaseModel):
+    codigo: str = Field(min_length=43, max_length=43, pattern=r"^[A-Za-z0-9_-]{43}$")
+
+
+class SeguimientoOut(BaseModel):
+    estado: EstadoCita
+    fecha_programada: date
+    hora_inicio: time
+    zona_horaria: str
 
 
 class CitaBase(BaseModel):

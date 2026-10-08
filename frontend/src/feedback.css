@@ -1,0 +1,23 @@
+.feedback.feedback { display:flex;align-items:flex-start;gap:10px;padding:13px 15px;margin:14px 0;border:1px solid var(--feedback-border);border-left-width:4px;border-radius:5px;background:var(--feedback-bg);color:var(--feedback-color);font:13px/1.55 Arial,sans-serif;text-align:left;letter-spacing:0;overflow-wrap:anywhere; }
+.feedback-error { --feedback-border:#dca7a5;--feedback-bg:#fff1f0;--feedback-color:#8f2826; }
+.feedback-warning { --feedback-border:#d9bc65;--feedback-bg:#fff9e8;--feedback-color:#70510a; }
+.feedback-success { --feedback-border:#9bcbb0;--feedback-bg:#edf8f1;--feedback-color:#205b3b; }
+.feedback-info { --feedback-border:#a8c8dd;--feedback-bg:#eef6fb;--feedback-color:#2d5774; }
+.feedback>svg { flex-shrink:0;margin-top:1px; }
+.feedback .feedback-content { min-width:0;flex:1; }
+.feedback .feedback-content>strong { display:block;font-size:13px;font-weight:700;margin-bottom:5px;color:inherit; }
+body .feedback .feedback-content p { margin:0;color:inherit;font-size:13px;line-height:1.55; }
+.feedback .feedback-actions { display:flex;flex-wrap:wrap;gap:8px;margin-top:12px; }
+body .feedback .feedback-actions button { display:inline-flex;align-items:center;justify-content:flex-start;gap:8px;width:auto;max-width:100%;margin:0;min-height:38px;padding:8px 11px;border:1px solid var(--feedback-border);border-radius:5px;background:white;color:var(--feedback-color);font-size:12px;line-height:1.5;white-space:normal;text-align:left;cursor:pointer; }
+.feedback-actions svg { flex-shrink:0; }
+.renacer-home aside .chat-messages-scrollbar>.feedback.feedback,.a-admin aside .chat-messages-scrollbar>.feedback.feedback { background:var(--feedback-bg);color:var(--feedback-color); }
+.selection-feedback { scroll-margin:25px; }
+.selection-feedback:focus { outline:2px solid #997b2d;outline-offset:3px;border-radius:5px; }
+body .renacer-home [data-booking-dialog] [aria-invalid=true],body .a-admin [aria-invalid=true],body .a-login [aria-invalid=true] { border-color:#b6403b;box-shadow:0 0 0 1px #b6403b; }
+.field-error.field-error { display:flex;align-items:start;gap:6px;color:#9e2d29!important;font-size:12px!important;line-height:1.5;margin:7px 0 0; }
+body .a-modal .a-field:user-invalid,body .a-login input:user-invalid { border-color:#b6403b;box-shadow:0 0 0 1px #b6403b; }
+.form-error-summary { scroll-margin:20px; }
+.form-error-summary:focus { outline:2px solid #b6403b;outline-offset:3px; }
+.form-error-summary ul { margin:8px 0 0;padding-left:18px;list-style:disc; }
+.form-error-summary a { color:inherit;text-decoration:underline; }
+@media(max-width:640px) { .feedback.feedback { padding:11px; }.feedback-actions { flex-direction:column; }.feedback .feedback-actions button { width:100%; } }

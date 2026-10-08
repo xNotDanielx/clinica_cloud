@@ -9,7 +9,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
-    UniqueConstraint,
+    Index,
     text,
     Boolean
 )
@@ -26,7 +26,11 @@ class Cita(Base):
             "estado IN ('pendiente_aprobacion', 'aprobada', 'cancelada', 'completada')",
             name="chk_estado",
         ),
-        UniqueConstraint("fecha_programada", "hora_inicio", name="unique_cita"),
+        Index(
+            "unique_cita_activa", "fecha_programada", "hora_inicio", unique=True,
+            postgresql_where=text("activo = true AND estado <> 'cancelada'"),
+        ),
+        Index("unique_seguimiento_hash", "seguimiento_hash", unique=True),
         {"schema": "public"},
     )
 
@@ -54,6 +58,7 @@ class Cita(Base):
     nota = Column(Text, nullable=True)
     notas_asesoria = Column(Text, nullable=True)
     razon_rechazo = Column(Text, nullable=True)
+    seguimiento_hash = Column(String(64), nullable=True)
     estado = Column(String(30), nullable=False)
     activo = Column(Boolean, nullable=False, server_default=text("true"))
     fecha_ultima_actualizacion = Column(
