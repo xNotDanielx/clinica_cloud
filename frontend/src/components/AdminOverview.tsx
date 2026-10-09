@@ -16,8 +16,6 @@ export default function AdminOverview({ onPending, onAppointments, onCreate }: P
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
     Promise.all([apiFetch("/citas/todas"), apiFetch("/citas/pendientes-aprobacion"), apiFetch("/pacientes")])
       .then(([appointments, pending, patients]) => { if (active) setData({ appointments, pending, patients: patients.length }); })
       .catch(() => { if (active) setError("No se pudo actualizar el resumen. Comprueba tu sesión e intenta de nuevo."); })
@@ -34,7 +32,7 @@ export default function AdminOverview({ onPending, onAppointments, onCreate }: P
     { label: "Citas aprobadas", value: all.filter(a => a.estado === "aprobada").length, icon: CheckCircle2, tone: "green" },
   ];
   return <div className="a-overview">
-    <div className="a-title-row"><div><span className="a-kicker">OPERACIÓN DE LA CLÍNICA</span><h1>Todo listo para tu jornada.</h1><p>{new Intl.DateTimeFormat("es", {dateStyle:"full"}).format(new Date())}</p></div><div className="a-actions"><button className="a-icon" title="Actualizar resumen" aria-label="Actualizar resumen" onClick={() => setRevision(v=>v+1)} disabled={loading}><RefreshCw size={17} /></button><button className="a-primary" onClick={onCreate}><CalendarDays size={17}/> Nueva cita</button></div></div>
+    <div className="a-title-row"><div><span className="a-kicker">OPERACIÓN DE LA CLÍNICA</span><h1>Todo listo para tu jornada.</h1><p>{new Intl.DateTimeFormat("es", {dateStyle:"full"}).format(new Date())}</p></div><div className="a-actions"><button className="a-icon" title="Actualizar resumen" aria-label="Actualizar resumen" onClick={() => { setLoading(true); setError(""); setRevision(v=>v+1); }} disabled={loading}><RefreshCw size={17} /></button><button className="a-primary" onClick={onCreate}><CalendarDays size={17}/> Nueva cita</button></div></div>
     {error && <Feedback>{error}</Feedback>}
     <div className="a-metrics" aria-busy={loading}>{metrics.map(({label,value,icon:Icon,tone})=><div key={label}><span className={`a-metric-icon ${tone}`}><Icon size={19}/></span><span>{label}</span><strong>{loading || error ? "—" : value}</strong></div>)}</div>
     <div className="a-overview-grid">

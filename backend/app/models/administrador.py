@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, text
+from sqlalchemy import func, Boolean, Column, DateTime, Integer, String, text
 
 from app.db.database import Base
 
@@ -15,5 +15,6 @@ class Administrador(Base):
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
     )
     ultimo_acceso = Column(DateTime, nullable=True)

@@ -4,8 +4,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Protocol
 
-from app.core.config import settings
+from app.core.config import get_settings
+
 from app.schemas.asistente import AccionAsistente, MensajeConversacion, RespuestaAsistente
+
+settings = get_settings()
 
 
 SYSTEM_PROMPT = """Eres el asistente informativo de Clínica Renacer.

@@ -1,3 +1,4 @@
+import { useAdminAuth } from "../hooks/useAdminAuth";
 import Feedback from "../components/Feedback";
 import { useEffect, useRef, useState } from "react";
 import AdminAssistantWidget from "../components/AdminAssistantWidget";
@@ -125,13 +126,9 @@ const initialEditAppointmentForm: EditAppointmentFormData = {
 };
 
 export default function AdminPage() {
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const { loggedIn, checkingSession, username, setUsername, password, setPassword, loginError, isLoggingIn, handleLogin, logout } = useAdminAuth();
   const [activeTab, setActiveTab] = useState<TabKey>("Inicio");
 
-  const [loginError, setLoginError] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [notice, setNotice] = useState("");
   const [procedureLoadError, setProcedureLoadError] = useState("");
   const [confirmAction, setConfirmAction] = useState<{ title: string; description: string; run: () => Promise<void> } | null>(null);
@@ -336,7 +333,7 @@ export default function AdminPage() {
       procedimiento_ids: Array.isArray(appointment.procedimiento_ids)
         ? appointment.procedimiento_ids
         : [],
-      valor_consulta: "0",
+      valor_consulta: String(Math.max(0, Number(appointment.monto_final || 0) - Number(appointment.monto_base || 0) + Number(appointment.monto_descuento || 0))),
       id_codigo_promocional:
         appointment.id_codigo_promocional != null
           ? String(appointment.id_codigo_promocional)
@@ -622,29 +619,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isLoggingIn) return;
-    setLoginError("");
-    setIsLoggingIn(true);
-    try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000"}/administradores/login`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ usuario: username.trim(), contrasena: password }),
-      });
-      if (!response.ok) {
-        setLoginError(response.status === 401 ? "Usuario o contraseña incorrectos." : "No se pudo iniciar sesión. Inténtalo de nuevo.");
-        return;
-      }
-      const data = await response.json();
-      localStorage.setItem("access_token", data.access_token);
-      setPassword("");
-      setNotice("");
-      setLoggedIn(true);
-    } catch {
-      setLoginError("No se pudo conectar con el servidor. Comprueba la conexión.");
-    } finally { setIsLoggingIn(false); }
-  };
+  if (checkingSession) return <main className="a-admin" role="status"><p>Validando sesión...</p></main>;
 
   if (!loggedIn) {
     return (
@@ -671,7 +646,7 @@ export default function AdminPage() {
           <p>ESPACIO DE TRABAJO</p>
           <nav aria-label="Administración">{sidebarItems.map(item => { const Icon = navigationIcons[item]; return <button key={item} onClick={()=>setActiveTab(item)} aria-current={activeTab === item ? "page" : undefined}><Icon size={18}/>{item === "Autorizar Citas" ? "Solicitudes" : item}</button>; })}</nav>
           <div className="a-session"><Activity size={16}/><span>Sesión administrativa</span></div>
-          <button className="a-logout" onClick={()=>{localStorage.removeItem("access_token"); setLoggedIn(false);setPassword("");setActiveTab("Inicio");}}><LogOut size={17}/> Cerrar sesión</button>
+          <button className="a-logout" onClick={()=>{logout();setNotice("");setActiveTab("Inicio");}}><LogOut size={17}/> Cerrar sesión</button>
         </aside>
         <div className="a-content">
           {procedureLoadError && <Feedback title="Catálogo no disponible"><p>{procedureLoadError}</p><div className="feedback-actions"><button onClick={cargarProcedimientos}>Reintentar</button></div></Feedback>}

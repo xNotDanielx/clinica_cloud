@@ -1,9 +1,9 @@
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
 .venv/
 venv/
-.pytest_cache/
-.mypy_cache/
-.git/
 .env
+.git/
 tests/

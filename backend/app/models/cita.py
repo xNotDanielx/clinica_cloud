@@ -1,5 +1,8 @@
 from sqlalchemy import (
+    func,
+    Boolean,
     CheckConstraint,
+    Index,
     Column,
     Date,
     DateTime,
@@ -9,9 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
-    Index,
     text,
-    Boolean
 )
 from sqlalchemy.orm import relationship
 
@@ -26,10 +27,6 @@ class Cita(Base):
             "estado IN ('pendiente_aprobacion', 'aprobada', 'cancelada', 'completada')",
             name="chk_estado",
         ),
-        Index(
-            "unique_cita_activa", "fecha_programada", "hora_inicio", unique=True,
-            postgresql_where=text("activo = true AND estado <> 'cancelada'"),
-        ),
         Index("unique_seguimiento_hash", "seguimiento_hash", unique=True),
         {"schema": "public"},
     )
@@ -37,7 +34,11 @@ class Cita(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_paciente = Column(
         String(20),
-        ForeignKey("public.pacientes.identificacion", onupdate="CASCADE", ondelete="RESTRICT"),
+        ForeignKey(
+            "public.pacientes.identificacion",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
         nullable=False,
     )
     id_codigo_promocional = Column(
@@ -65,14 +66,27 @@ class Cita(Base):
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
     )
 
     paciente = relationship("Paciente", back_populates="citas")
-    codigo_promocional = relationship("CodigoPromocional", back_populates="citas")
-    citas_procedimientos = relationship("CitaProcedimiento", back_populates="cita")
+    codigo_promocional = relationship(
+        "CodigoPromocional",
+        back_populates="citas",
+    )
+    citas_procedimientos = relationship(
+        "CitaProcedimiento",
+        back_populates="cita",
+        cascade="all, delete-orphan",
+    )
 
     @property
-    def nombre_paciente(self):
-        if self.paciente:
-            return self.paciente.nombre_completo
-        return None
+    def nombre_paciente(self) -> str | None:
+        return self.paciente.nombre_completo if self.paciente else None
+
+    @property
+    def procedimiento_ids(self) -> list[int]:
+        return [
+            item.id_procedimiento
+            for item in self.citas_procedimientos
+        ]

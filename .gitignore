@@ -9,7 +9,6 @@ venv/
 .env
 .env.*
 !.env.example
-!.env.production.example
 
 # FastAPI / tooling
 .pytest_cache/
@@ -26,6 +25,7 @@ build/
 # IDE
 .vscode/
 .idea/
+.vs/
 
 # OS
 .DS_Store
@@ -41,3 +41,5 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 *.db
+!.env.production.example
+.ruff_cache/

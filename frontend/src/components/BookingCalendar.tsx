@@ -8,22 +8,21 @@ type Props = { date: string; hour: string; revision: number; onChange: (date: st
 
 export default function BookingCalendar({ date, hour, revision, onChange, onHours }: Props) {
   const [month, setMonth] = useState(date ? date.slice(0, 7) + "-01" : "");
-  const [data, setData] = useState<CalendarData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [resultData, setData] = useState<CalendarData | null>(null);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
+  const requestKey = `${month}:${revision}:${retry}`;
+  const loading = loadedKey !== requestKey;
+  const data = loading ? null : resultData;
   useEffect(() => {
     let current = true;
-    setLoading(true);
-    setError("");
-    setData(null);
-    onHours([]);
     apiFetch("/citas/calendario" + (month ? `?mes=${month}` : ""))
-      .then(result => { if (current) setData(result); })
+      .then(result => { if (current) {setData(result);setError("");} })
       .catch(() => { if (current) setError("No pudimos consultar la agenda. Intenta de nuevo."); })
-      .finally(() => { if (current) setLoading(false); });
+      .finally(() => { if (current) setLoadedKey(requestKey); });
     return () => { current = false; };
-  }, [month, revision, retry, onHours]);
+  }, [month, requestKey]);
   useEffect(() => { onHours(data?.dias[date] ?? []); }, [data, date, onHours]);
 
   const visibleMonth = data?.mes || month;

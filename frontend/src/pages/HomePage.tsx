@@ -10,7 +10,8 @@ import Feedback from "../components/Feedback";
 import ProcedureSelectionFeedback from "../components/ProcedureSelectionFeedback";
 import { toggleSelection, replaceSelection } from "../components/procedureSelection";
 
-const fallbackProcedures: any[] = [];
+type PublicProcedure = { id: number; nombre: string; descripcion: string; precio: string | number; url_imagen?: string | null };
+const fallbackProcedures: PublicProcedure[] = [];
 
 type FormData = {
   nombre: string;
@@ -78,7 +79,7 @@ export default function HomePage() {
   const [procedureRetry, setProcedureRetry] = useState(0);
   const errorSummary = useRef<HTMLDivElement>(null);
   const [catalogos, setCatalogos] = useState<CatalogosResponse | null>(null);
-  const [proceduresData, setProceduresData] = useState<any[] | null>(null);
+  const [proceduresData, setProceduresData] = useState<PublicProcedure[] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -116,7 +117,6 @@ export default function HomePage() {
 
   useEffect(() => {
     let mounted = true;
-    setProcedureError("");
 
     (async () => {
       try {
@@ -124,6 +124,7 @@ export default function HomePage() {
         const safe = Array.isArray(data) ? data : [];
 
         if (mounted) {
+          setProcedureError("");
           setProceduresData(safe.length ? safe : fallbackProcedures);
         }
       } catch (error) {
@@ -140,10 +141,8 @@ export default function HomePage() {
     };
   }, [procedureRetry]);
 
-  const cargarCatalogos = async () => {
-    setCatalogError("");
-    try {
-      const data = (await apiFetch("/catalogos")) as CatalogosResponse;
+  const cargarCatalogos = () => apiFetch("/catalogos").then((data: CatalogosResponse) => {
+      setCatalogError("");
       setCatalogos(data);
 
       setForm((prev) => ({
@@ -152,10 +151,9 @@ export default function HomePage() {
         prefijo: prev.prefijo || data.prefijos_telefonicos?.[0]?.dial || "",
         sexo: prev.sexo || data.sexos?.[0] || "",
       }));
-    } catch (error) {
+    }).catch(() => {
       setCatalogError("No pudimos cargar las opciones del formulario. Reintenta para continuar.");
-    }
-  };
+    });
 
   useEffect(() => {
     cargarCatalogos();
@@ -238,8 +236,8 @@ export default function HomePage() {
     if (!validateForm() || catalogError || procedureError) return;
 
     const selectedProcedureIds = procedureList
-      .filter((p: any) => selected.includes(p.nombre ?? p.name ?? ""))
-      .map((p: any) => p.id);
+      .filter((p) => selected.includes(p.nombre))
+      .map((p) => p.id);
 
     const payload = {
       nombre_completo: form.nombre,
@@ -290,7 +288,7 @@ export default function HomePage() {
     requestedDate?: string | null
   ) => {
     const availableNames = new Set(
-      procedureList.map((procedure) => procedure.nombre ?? procedure.name ?? "")
+      procedureList.map((procedure) => procedure.nombre)
     );
     const matchedProcedures = procedureNames
       .filter((name) => availableNames.has(name))
@@ -473,7 +471,7 @@ export default function HomePage() {
                   <label className="mb-2 block text-sm font-medium text-slate-200">Procedimientos · {selected.length}/2 seleccionados *</label>
                   <div className="grid gap-3 md:grid-cols-2">
                     {procedureList.map((p) => {
-                      const name = p.nombre ?? p.name ?? "";
+                      const name = p.nombre;
                       const active = selected.includes(name);
                       return (
                         <label key={name} className="r-booking-procedure">

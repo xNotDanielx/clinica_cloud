@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AdministradorBase(BaseModel):
@@ -10,12 +10,12 @@ class AdministradorBase(BaseModel):
 
 
 class AdministradorCreate(BaseModel):
-    usuario: str
-    contrasena: str
+    usuario: str = Field(min_length=3, max_length=50)
+    contrasena: str = Field(min_length=12, max_length=128)
 
 
 class AdministradorUpdate(BaseModel):
-    usuario: str | None = None
+    usuario: str | None = Field(default=None, min_length=3, max_length=50)
     activo: bool | None = None
     ultimo_acceso: datetime | None = None
 
@@ -28,8 +28,8 @@ class AdministradorOut(AdministradorBase):
 
 
 class AdministradorLoginRequest(BaseModel):
-    usuario: str
-    contrasena: str
+    usuario: str = Field(min_length=1, max_length=50)
+    contrasena: str = Field(min_length=1, max_length=128)
 
 
 class AdministradorAuthResponse(BaseModel):

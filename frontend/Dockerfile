@@ -1,14 +1,22 @@
 # syntax=docker/dockerfile:1.7
-FROM node:20-slim
+
+FROM node:22-slim
 
 WORKDIR /app
 
+RUN npm install -g npm@latest
+
 COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
+
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 
+ARG VITE_BACKEND_URL=""
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+
+RUN npm run build
+
 EXPOSE 5173
 
-CMD ["sh", "-c", "npm ci --no-audit --no-fund && npm run dev"]
+CMD ["npm", "run", "preview"]

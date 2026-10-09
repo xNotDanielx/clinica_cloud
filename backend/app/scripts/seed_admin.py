@@ -1,21 +1,24 @@
-import os
+import logging
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.administrador import Administrador
 from app.common.security import hash_password
+from app.models.administrador import Administrador
 
 
-DEFAULT_ADMIN_USUARIO = os.getenv("DEFAULT_ADMIN_USUARIO", "admin")
-DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "admin")
+logger = logging.getLogger(__name__)
 
 
-def crear_administrador_por_defecto(db: Session) -> None:
+def crear_administrador_por_defecto(
+    db: Session,
+    *,
+    usuario: str,
+    contrasena: str,
+) -> None:
     administrador = db.scalar(
         select(Administrador).where(
-            Administrador.usuario == DEFAULT_ADMIN_USUARIO
+            Administrador.usuario == usuario
         )
     )
 
@@ -23,20 +26,11 @@ def crear_administrador_por_defecto(db: Session) -> None:
         return
 
     nuevo_administrador = Administrador(
-        usuario=DEFAULT_ADMIN_USUARIO,
-        contrasena_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
+        usuario=usuario,
+        contrasena_hash=hash_password(contrasena),
         activo=True,
     )
 
     db.add(nuevo_administrador)
-    try:
-        db.commit()
-    except IntegrityError:
-        # Otro worker pudo crear el mismo usuario entre la consulta y el insert.
-        db.rollback()
-        return
-
-    print(
-        f"Administrador por defecto creado: "
-        f"{DEFAULT_ADMIN_USUARIO}"
-    )
+    db.commit()
+    logger.info("Administrador inicial creado: %s", usuario)

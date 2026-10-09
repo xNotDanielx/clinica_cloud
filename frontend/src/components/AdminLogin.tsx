@@ -37,4 +37,3 @@ export default function AdminLogin({ username, password, onUsernameChange, onPas
     <span className="a-login-footer">Clínica Renacer · Administración</span>
   </main>;
 }
-

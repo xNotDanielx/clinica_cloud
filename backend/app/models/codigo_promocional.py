@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    func,
     Boolean,
     CheckConstraint,
     Column,
@@ -42,6 +43,7 @@ class CodigoPromocional(Base):
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
     )
 
     citas = relationship("Cita", back_populates="codigo_promocional")

@@ -9,15 +9,15 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.database import Base, engine
-import app.models
+import app.models  # noqa: F401
 from app.models.procedimiento import Procedimiento
 from app.common.exceptions import ConflictError, ValidationError, NotFoundError
-from app.common.enums import EstadoCita
 from app.services.booking_policy import booking_limits, validate_public_slot
 from app.services.cita_service import CitaService
 from app.schemas.cita import CitaPublicaOut, CitaUpdate
 
 
+@unittest.skipUnless(engine.dialect.name == "postgresql", "Requires PostgreSQL: set DATABASE_URL to a test database")
 class BookingTests(unittest.TestCase):
     def setUp(self):
         # Every test uses its own schema; public application records are untouched.
@@ -38,12 +38,14 @@ class BookingTests(unittest.TestCase):
             connection.execute(text(f'DROP SCHEMA "{self.schema}" CASCADE'))
 
     def book(self, db, hour="09:00", identity="10000", day=None):
-        return CitaService.crear_cita_publica(
+        cita = CitaService.crear_cita_publica(
             db, nombre_completo="Paciente Prueba", tipo_identificacion="cedula_chilena",
             identificacion=identity, telefono="+56000000000", email="prueba@example.com",
             direccion="Direccion ficticia", sexo="femenino", fecha_programada=day or self.day,
             hora=hour, procedimiento_ids=[self.procedure_id],
         )
+        db.commit()
+        return cita
 
     def test_pending_blocks_slot_and_receipt_has_no_private_fields(self):
         with Session(self.db_engine) as db:

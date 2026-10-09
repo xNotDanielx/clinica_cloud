@@ -1,5 +1,5 @@
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Float, String, text, Boolean
+from sqlalchemy import func, CheckConstraint, Column, DateTime, Float, String, text, Boolean
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -55,6 +55,7 @@ class Paciente(Base):
         DateTime,
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
     )
 
     citas = relationship("Cita", back_populates="paciente")
